@@ -6,27 +6,47 @@ const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || 'demo';
 
 // ============ YAHOO FINANCE (Primary - No API key needed) ============
 async function yahooSearch(symbol: string) {
-  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${symbol}&quotesCount=10&newsCount=0`;
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0' },
+  // ค้นหาทั้งแบบปกติและหุ้นไทย (.BK)
+  const searches = [
+    `https://query1.finance.yahoo.com/v1/finance/search?q=${symbol}&quotesCount=10&newsCount=0`,
+    `https://query1.finance.yahoo.com/v1/finance/search?q=${symbol}.BK&quotesCount=5&newsCount=0`,
+  ];
+
+  const results = await Promise.all(
+    searches.map(async (url) => {
+      try {
+        const response = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.quotes || [];
+      } catch {
+        return [];
+      }
+    })
+  );
+
+  // รวมผลลัพธ์และกรอง duplicate
+  const allQuotes = [...results[1], ...results[0]]; // ให้หุ้นไทยขึ้นก่อน
+  const seen = new Set<string>();
+  const uniqueQuotes = allQuotes.filter((q: Record<string, string>) => {
+    if (!q.symbol || seen.has(q.symbol)) return false;
+    seen.add(q.symbol);
+    return true;
   });
 
-  if (!response.ok) throw new Error('Yahoo search failed');
-
-  const data = await response.json();
-  if (!data.quotes || data.quotes.length === 0) {
+  if (uniqueQuotes.length === 0) {
     throw new Error('ไม่พบหุ้นที่ค้นหา');
   }
 
-  const bestMatches = data.quotes
-    .filter((q: Record<string, string>) => q.symbol) // กรองเฉพาะที่มี symbol
-    .map((q: Record<string, string>) => ({
-      '1. symbol': q.symbol,
-      '2. name': q.shortname || q.longname || q.symbol,
-      '3. type': q.quoteType || 'Equity',
-      '4. region': q.exchange || 'US',
-      '8. currency': q.currency || 'USD',
-    }));
+  const bestMatches = uniqueQuotes.map((q: Record<string, string>) => ({
+    '1. symbol': q.symbol,
+    '2. name': q.shortname || q.longname || q.symbol,
+    '3. type': q.quoteType || 'Equity',
+    '4. region': q.exchange || 'US',
+    '8. currency': q.currency || 'USD',
+  }));
 
   return { source: 'yahoo', bestMatches };
 }

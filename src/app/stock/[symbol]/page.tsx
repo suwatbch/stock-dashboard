@@ -1,7 +1,12 @@
 'use client';
 
 import { useParams, useSearchParams } from 'next/navigation';
-import StockDetailContent from '@/components/StockDetailContent';
+import dynamic from 'next/dynamic';
+
+const StockDetailContent = dynamic(
+  () => import('@/components/StockDetailContent'),
+  { ssr: false }
+);
 
 export default function StockDetailPage() {
   const params = useParams();

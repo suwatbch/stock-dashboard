@@ -10,8 +10,32 @@ import {
   AreaData,
   AreaSeries,
 } from 'lightweight-charts';
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  IconButton,
+  Button,
+  ButtonGroup,
+  Alert,
+  Skeleton,
+  Divider,
+  Tooltip,
+  CircularProgress,
+} from '@mui/material';
+import {
+  ArrowBack as ArrowBackIcon,
+  Refresh as RefreshIcon,
+  Bookmark as BookmarkIcon,
+  BookmarkBorder as BookmarkBorderIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  AccessTime as AccessTimeIcon,
+} from '@mui/icons-material';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { StockQuote, TimeRange } from '@/types/stock';
+import ThemeRegistry from './ThemeRegistry';
 
 interface StockDetailContentProps {
   symbol: string;
@@ -193,13 +217,17 @@ export default function StockDetailContent({
       }
 
       // Convert to chart data
+      // lightweight-charts displays timestamps as UTC, so we need to add local timezone offset
+      // to make it display as Thai time (UTC+7)
       const chartData: AreaData<Time>[] = Object.entries(timeSeries)
         .map(([date, values]) => {
-          // สำหรับ intraday ใช้ timestamp แบบ Unix
           let timeValue: Time;
           if (type === 'intraday') {
-            // แปลง datetime string เป็น unix timestamp (seconds)
-            const timestamp = Math.floor(new Date(date).getTime() / 1000);
+            // Parse date and add Thai timezone offset (7 hours) for chart display
+            const parsedDate = new Date(date.replace(' ', 'T') + 'Z');
+            const thaiOffset = 7 * 60 * 60; // 7 hours in seconds
+            const timestamp =
+              Math.floor(parsedDate.getTime() / 1000) + thaiOffset;
             timeValue = timestamp as Time;
           } else {
             timeValue = date as Time;
@@ -220,7 +248,7 @@ export default function StockDetailContent({
       // Filter data based on timeRange
       let filteredData = chartData;
       if (timeRange === '1D') {
-        filteredData = chartData.slice(-78); // 5min intervals for one day
+        filteredData = chartData.slice(-78);
       } else if (timeRange === '1W') {
         filteredData = chartData.slice(-7);
       } else if (timeRange === '1M') {
@@ -247,7 +275,6 @@ export default function StockDetailContent({
   useEffect(() => {
     if (!mounted) return;
 
-    // รอสักครู่ให้ DOM พร้อม
     const timer = setTimeout(() => {
       if (!chartContainerRef.current || chartRef.current) return;
 
@@ -273,6 +300,17 @@ export default function StockDetailContent({
         rightPriceScale: {
           borderColor: CHART_COLORS.border,
         },
+        localization: {
+          locale: 'th-TH',
+          timeFormatter: (timestamp: number) => {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleTimeString('th-TH', {
+              timeZone: 'Asia/Bangkok',
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+          },
+        },
       });
 
       const series = chart.addSeries(AreaSeries, {
@@ -286,7 +324,6 @@ export default function StockDetailContent({
       seriesRef.current = series;
       setChartReady(true);
 
-      // Resize handler
       const handleResize = () => {
         if (chartContainerRef.current && chartRef.current) {
           chartRef.current.applyOptions({
@@ -344,237 +381,304 @@ export default function StockDetailContent({
   const isPositive = stockData ? stockData.change >= 0 : true;
   const timeRanges: TimeRange[] = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--color-background)] to-[var(--color-secondary)] text-[var(--color-text)] p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto">
+  const content = (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background:
+          'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)',
+        py: { xs: 2, sm: 4 },
+        px: { xs: 2, sm: 3 },
+      }}
+    >
+      <Container maxWidth="lg">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => router.push('/')}
-            className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
-          >
-            ← กลับ
-          </button>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold text-[var(--color-text)]">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+          <Tooltip title="กลับ">
+            <IconButton
+              onClick={() => router.push('/')}
+              sx={{
+                color: 'text.secondary',
+                '&:hover': { color: 'text.primary' },
+              }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+          </Tooltip>
+
+          <Box sx={{ flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h4" fontWeight={700}>
                 {symbol}
-              </h1>
-              <button
-                onClick={toggleWatchlist}
-                className="p-2 text-[var(--color-highlight)] hover:opacity-70 transition-opacity"
+              </Typography>
+              <Tooltip
                 title={inWatchlist ? 'ลบออกจากรายการ' : 'เพิ่มเข้ารายการ'}
               >
-                {inWatchlist ? '🔖' : '📑'}
-              </button>
-            </div>
-            <p className="text-[var(--color-text-secondary)]">{stockName}</p>
-          </div>
-          <button
-            onClick={() => {
-              fetchStockData();
-              fetchChartData();
-            }}
-            disabled={loading || chartLoading}
-            className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text)] disabled:opacity-50 transition-colors"
-            title="รีเฟรช"
-          >
-            <svg
-              className={`w-6 h-6 ${loading || chartLoading ? 'spinner' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
-        </div>
+                <IconButton onClick={toggleWatchlist} sx={{ color: '#e94560' }}>
+                  {inWatchlist ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                </IconButton>
+              </Tooltip>
+            </Box>
+            <Typography variant="body1" color="text.secondary">
+              {stockName}
+            </Typography>
+          </Box>
+
+          <Tooltip title="รีเฟรช">
+            <span>
+              <IconButton
+                onClick={() => {
+                  fetchStockData();
+                  fetchChartData();
+                }}
+                disabled={loading || chartLoading}
+                sx={{
+                  color: 'text.secondary',
+                  '&:hover': { color: '#e94560' },
+                }}
+              >
+                <RefreshIcon
+                  sx={{
+                    animation:
+                      loading || chartLoading
+                        ? 'spin 1s linear infinite'
+                        : 'none',
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
+                  }}
+                />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-4 bg-[var(--color-danger)]/10 border border-[var(--color-danger)] rounded-xl flex items-center justify-between">
-            <span className="text-[var(--color-danger)]">❌ {error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="text-[var(--color-danger)] hover:opacity-70"
-            >
-              ✕
-            </button>
-          </div>
+          <Alert
+            severity="error"
+            onClose={() => setError(null)}
+            sx={{
+              mb: 3,
+              backgroundColor: 'rgba(255, 23, 68, 0.1)',
+              border: '1px solid rgba(255, 23, 68, 0.5)',
+              borderRadius: 2,
+            }}
+          >
+            {error}
+          </Alert>
         )}
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', lg: '1fr 2fr' },
+            gap: 3,
+          }}
+        >
           {/* Price Card */}
-          <div className="lg:col-span-1">
-            <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl p-6">
-              {loading ? (
-                <div className="animate-pulse space-y-4">
-                  <div className="h-10 bg-[var(--color-border)] rounded w-1/2"></div>
-                  <div className="h-6 bg-[var(--color-border)] rounded w-1/3"></div>
-                  <hr className="border-[var(--color-border)] my-4" />
-                  <div className="space-y-3">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="flex justify-between">
-                        <div className="h-4 bg-[var(--color-border)] rounded w-1/4"></div>
-                        <div className="h-4 bg-[var(--color-border)] rounded w-1/4"></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : stockData ? (
-                <>
-                  <h2 className="text-4xl font-bold text-[var(--color-text)] mb-2">
-                    ${formatNumber(stockData.price)}
-                  </h2>
-                  <div className="flex items-center gap-2 mb-6">
-                    <span
-                      className={
-                        isPositive
-                          ? 'text-[var(--color-success)]'
-                          : 'text-[var(--color-danger)]'
-                      }
-                    >
-                      {isPositive ? '↗' : '↘'}
-                    </span>
-                    <span
-                      className={`text-xl font-semibold ${
-                        isPositive
-                          ? 'text-[var(--color-success)]'
-                          : 'text-[var(--color-danger)]'
-                      }`}
-                    >
-                      {isPositive ? '+' : ''}
-                      {formatNumber(stockData.change)} ({isPositive ? '+' : ''}
-                      {formatNumber(stockData.changePercent)}%)
-                    </span>
-                  </div>
+          <Paper
+            elevation={8}
+            sx={{
+              p: 3,
+              backgroundColor: 'rgba(26, 26, 46, 0.95)',
+              borderRadius: 3,
+              border: '1px solid rgba(233, 69, 96, 0.2)',
+            }}
+          >
+            {loading ? (
+              <Box>
+                <Skeleton variant="text" width="60%" height={60} />
+                <Skeleton variant="text" width="40%" height={40} />
+                <Divider sx={{ my: 2, borderColor: 'rgba(45, 45, 68, 0.5)' }} />
+                {[...Array(5)].map((_, i) => (
+                  <Box
+                    key={i}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      mb: 1.5,
+                    }}
+                  >
+                    <Skeleton variant="text" width="30%" />
+                    <Skeleton variant="text" width="30%" />
+                  </Box>
+                ))}
+              </Box>
+            ) : stockData ? (
+              <Box>
+                <Typography variant="h3" fontWeight={700} gutterBottom>
+                  ${formatNumber(stockData.price)}
+                </Typography>
 
-                  <hr className="border-[var(--color-border)] my-4" />
-
-                  {/* Stats */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">
-                        เปิด
-                      </span>
-                      <span className="text-[var(--color-text)] font-medium">
-                        ${formatNumber(stockData.open)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">
-                        สูงสุด
-                      </span>
-                      <span className="text-[var(--color-success)] font-medium">
-                        ${formatNumber(stockData.high)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">
-                        ต่ำสุด
-                      </span>
-                      <span className="text-[var(--color-danger)] font-medium">
-                        ${formatNumber(stockData.low)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">
-                        ปิดวันก่อน
-                      </span>
-                      <span className="text-[var(--color-text)] font-medium">
-                        ${formatNumber(stockData.previousClose)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--color-text-secondary)]">
-                        ปริมาณ
-                      </span>
-                      <span className="text-[var(--color-text)] font-medium">
-                        {formatLargeNumber(stockData.volume)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Last Update */}
-                  {lastUpdate && (
-                    <div className="mt-6 flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                      <span>🕐</span>
-                      <span>อัพเดตล่าสุด: {formatDateTime(lastUpdate)}</span>
-                    </div>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}
+                >
+                  {isPositive ? (
+                    <TrendingUpIcon sx={{ color: '#00c853' }} />
+                  ) : (
+                    <TrendingDownIcon sx={{ color: '#ff1744' }} />
                   )}
-                </>
-              ) : (
-                <div className="animate-pulse space-y-4">
-                  <div className="h-10 bg-[var(--color-border)] rounded w-1/2"></div>
-                  <div className="h-6 bg-[var(--color-border)] rounded w-1/3"></div>
-                  <hr className="border-[var(--color-border)] my-4" />
-                  <div className="space-y-3">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="flex justify-between">
-                        <div className="h-4 bg-[var(--color-border)] rounded w-1/4"></div>
-                        <div className="h-4 bg-[var(--color-border)] rounded w-1/4"></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+                  <Typography
+                    variant="h6"
+                    fontWeight={600}
+                    sx={{ color: isPositive ? '#00c853' : '#ff1744' }}
+                  >
+                    {isPositive ? '+' : ''}
+                    {formatNumber(stockData.change)} ({isPositive ? '+' : ''}
+                    {formatNumber(stockData.changePercent)}%)
+                  </Typography>
+                </Box>
+
+                <Divider sx={{ my: 2, borderColor: 'rgba(45, 45, 68, 0.5)' }} />
+
+                {/* Stats */}
+                <Box
+                  sx={{
+                    '& > div': {
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      mb: 1.5,
+                    },
+                  }}
+                >
+                  <Box>
+                    <Typography color="text.secondary">เปิด</Typography>
+                    <Typography fontWeight={500}>
+                      ${formatNumber(stockData.open)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography color="text.secondary">สูงสุด</Typography>
+                    <Typography fontWeight={500} sx={{ color: '#00c853' }}>
+                      ${formatNumber(stockData.high)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography color="text.secondary">ต่ำสุด</Typography>
+                    <Typography fontWeight={500} sx={{ color: '#ff1744' }}>
+                      ${formatNumber(stockData.low)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography color="text.secondary">ปิดวันก่อน</Typography>
+                    <Typography fontWeight={500}>
+                      ${formatNumber(stockData.previousClose)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography color="text.secondary">ปริมาณ</Typography>
+                    <Typography fontWeight={500}>
+                      {formatLargeNumber(stockData.volume)}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Last Update */}
+                {lastUpdate && (
+                  <Box
+                    sx={{
+                      mt: 3,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                    }}
+                  >
+                    <AccessTimeIcon
+                      sx={{ fontSize: 16, color: 'text.secondary' }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      อัพเดตล่าสุด: {formatDateTime(lastUpdate)}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            ) : null}
+          </Paper>
 
           {/* Chart */}
-          <div className="lg:col-span-2">
-            <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl p-6">
-              {/* Time Range Selector */}
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-[var(--color-text)]">
-                  กราฟราคา
-                </h3>
-                <div className="flex rounded-lg overflow-hidden border border-[var(--color-border)]">
-                  {timeRanges.map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => setTimeRange(range)}
-                      className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                        timeRange === range
-                          ? 'bg-[var(--color-highlight)] text-white'
-                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-accent)]'
-                      }`}
-                    >
-                      {range}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <Paper
+            elevation={8}
+            sx={{
+              p: 3,
+              backgroundColor: 'rgba(26, 26, 46, 0.95)',
+              borderRadius: 3,
+              border: '1px solid rgba(233, 69, 96, 0.2)',
+            }}
+          >
+            {/* Time Range Selector */}
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 2,
+              }}
+            >
+              <Typography variant="h6" fontWeight={600}>
+                กราฟราคา
+              </Typography>
+              <ButtonGroup size="small" variant="outlined">
+                {timeRanges.map((range) => (
+                  <Button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    sx={{
+                      color: timeRange === range ? 'white' : 'text.secondary',
+                      backgroundColor:
+                        timeRange === range ? '#e94560' : 'transparent',
+                      borderColor: 'rgba(45, 45, 68, 0.8)',
+                      '&:hover': {
+                        backgroundColor:
+                          timeRange === range
+                            ? '#e94560'
+                            : 'rgba(15, 52, 96, 0.5)',
+                        borderColor: 'rgba(233, 69, 96, 0.5)',
+                      },
+                    }}
+                  >
+                    {range}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            </Box>
 
-              {/* Chart Container */}
-              <div className="relative" style={{ minHeight: '400px' }}>
-                <div
-                  ref={chartContainerRef}
-                  style={{ width: '100%', height: '400px' }}
-                />
-                {chartLoading && (
-                  <div className="absolute inset-0 flex justify-center items-center bg-black/50 rounded-lg">
-                    <div className="w-8 h-8 border-4 border-[var(--color-border)] border-t-[var(--color-highlight)] rounded-full spinner" />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+            {/* Chart Container */}
+            <Box sx={{ position: 'relative', minHeight: 400 }}>
+              <Box
+                ref={chartContainerRef}
+                sx={{ width: '100%', height: 400 }}
+              />
+              {chartLoading && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    borderRadius: 2,
+                  }}
+                >
+                  <CircularProgress sx={{ color: '#e94560' }} />
+                </Box>
+              )}
+            </Box>
+          </Paper>
+        </Box>
 
         {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-[var(--color-text-secondary)]">
+        <Box sx={{ mt: 4, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
             ข้อมูลจาก {apiSource} • Stock Dashboard © 2025
-          </p>
-        </div>
-      </div>
-    </div>
+          </Typography>
+        </Box>
+      </Container>
+    </Box>
   );
+
+  return <ThemeRegistry>{content}</ThemeRegistry>;
 }

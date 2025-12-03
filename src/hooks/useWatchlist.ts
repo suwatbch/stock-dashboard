@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { WatchlistItem, StockQuote } from '@/types/stock';
 
 const WATCHLIST_KEY = 'stock_watchlist';
+const WATCHLIST_QUOTES_KEY = 'stock_watchlist_quotes';
 
 export function useWatchlist() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -13,17 +14,32 @@ export function useWatchlist() {
   const [loading, setLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // โหลด watchlist จาก localStorage เมื่อ mount
+  // โหลด watchlist และ quotes cache จาก localStorage เมื่อ mount
   useEffect(() => {
-    const saved = localStorage.getItem(WATCHLIST_KEY);
-    if (saved) {
+    // โหลด watchlist
+    const savedWatchlist = localStorage.getItem(WATCHLIST_KEY);
+    if (savedWatchlist) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(savedWatchlist);
         setWatchlist(parsed);
       } catch {
         console.error('Failed to parse watchlist from localStorage');
       }
     }
+
+    // โหลด quotes cache
+    const savedQuotes = localStorage.getItem(WATCHLIST_QUOTES_KEY);
+    if (savedQuotes) {
+      try {
+        const parsed = JSON.parse(savedQuotes);
+        // แปลง object กลับเป็น Map
+        const quotesMap = new Map<string, StockQuote>(Object.entries(parsed));
+        setWatchlistQuotes(quotesMap);
+      } catch {
+        console.error('Failed to parse watchlist quotes from localStorage');
+      }
+    }
+
     setIsInitialized(true);
   }, []);
 
@@ -33,6 +49,15 @@ export function useWatchlist() {
       localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist));
     }
   }, [watchlist, isInitialized]);
+
+  // บันทึก quotes ลง localStorage เมื่อมีการเปลี่ยนแปลง
+  useEffect(() => {
+    if (isInitialized && watchlistQuotes.size > 0) {
+      // แปลง Map เป็น object เพื่อ stringify
+      const quotesObj = Object.fromEntries(watchlistQuotes);
+      localStorage.setItem(WATCHLIST_QUOTES_KEY, JSON.stringify(quotesObj));
+    }
+  }, [watchlistQuotes, isInitialized]);
 
   // เพิ่มหุ้นเข้า watchlist
   const addToWatchlist = useCallback((symbol: string, name: string) => {
@@ -60,6 +85,18 @@ export function useWatchlist() {
       newMap.delete(symbol);
       return newMap;
     });
+
+    // อัพเดต localStorage ทันที
+    const savedQuotes = localStorage.getItem(WATCHLIST_QUOTES_KEY);
+    if (savedQuotes) {
+      try {
+        const parsed = JSON.parse(savedQuotes);
+        delete parsed[symbol];
+        localStorage.setItem(WATCHLIST_QUOTES_KEY, JSON.stringify(parsed));
+      } catch {
+        // ignore
+      }
+    }
   }, []);
 
   // ตรวจสอบว่าหุ้นอยู่ใน watchlist หรือไม่
@@ -75,7 +112,6 @@ export function useWatchlist() {
     if (watchlist.length === 0) return;
 
     setLoading(true);
-    const newQuotes = new Map<string, StockQuote>();
 
     // ดึงข้อมูลทีละตัวเพื่อไม่ให้โดน rate limit
     for (const item of watchlist) {
@@ -87,7 +123,7 @@ export function useWatchlist() {
 
         if (data['Global Quote']) {
           const quote = data['Global Quote'];
-          newQuotes.set(item.symbol, {
+          const stockQuote: StockQuote = {
             symbol: quote['01. symbol'],
             name: item.name,
             price: parseFloat(quote['05. price']) || 0,
@@ -100,19 +136,30 @@ export function useWatchlist() {
             volume: parseInt(quote['06. volume']) || 0,
             previousClose: parseFloat(quote['08. previous close']) || 0,
             latestTradingDay: quote['07. latest trading day'] || '',
+          };
+
+          // อัพเดต state ทีละตัว ใช้ functional update เพื่อหลีกเลี่ยง dependency
+          setWatchlistQuotes((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(item.symbol, stockQuote);
+            return newMap;
           });
         }
 
-        // รอ 1 วินาทีระหว่างแต่ละ request เพื่อไม่ให้โดน rate limit
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // รอ 500ms ระหว่างแต่ละ request
+        await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`Failed to fetch quote for ${item.symbol}:`, error);
       }
     }
 
-    setWatchlistQuotes(newQuotes);
     setLoading(false);
-  }, [watchlist]);
+  }, [watchlist]); // เอา watchlistQuotes ออกจาก dependency
+
+  // เรียงลำดับ watchlist ใหม่
+  const reorderWatchlist = useCallback((newOrder: WatchlistItem[]) => {
+    setWatchlist(newOrder);
+  }, []);
 
   return {
     watchlist,
@@ -123,5 +170,6 @@ export function useWatchlist() {
     removeFromWatchlist,
     isInWatchlist,
     refreshWatchlistQuotes,
+    reorderWatchlist,
   };
 }
