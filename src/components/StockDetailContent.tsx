@@ -261,6 +261,22 @@ export default function StockDetailContent({
 
       // Update chart
       if (seriesRef.current && filteredData.length > 0) {
+        // ตรวจสอบทิศทางราคา: จุดเริ่มต้น vs จุดสุดท้าย
+        const firstPrice = filteredData[0]?.value || 0;
+        const lastPrice = filteredData[filteredData.length - 1]?.value || 0;
+        const isUptrend = lastPrice >= firstPrice;
+
+        // เปลี่ยนสีตามทิศทาง (เขียวถ้าขึ้น, แดงถ้าลง)
+        seriesRef.current.applyOptions({
+          lineColor: isUptrend ? CHART_COLORS.success : CHART_COLORS.danger,
+          topColor: isUptrend
+            ? 'rgba(0, 200, 83, 0.4)'
+            : 'rgba(255, 23, 68, 0.4)',
+          bottomColor: isUptrend
+            ? 'rgba(0, 200, 83, 0.05)'
+            : 'rgba(255, 23, 68, 0.05)',
+        });
+
         seriesRef.current.setData(filteredData);
         chartRef.current?.timeScale().fitContent();
       }

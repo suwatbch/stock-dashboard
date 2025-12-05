@@ -8,6 +8,8 @@ import {
   Time,
   CandlestickSeries,
   CandlestickData,
+  AreaSeries,
+  AreaData,
 } from 'lightweight-charts';
 import {
   Box,
@@ -16,9 +18,19 @@ import {
   ButtonGroup,
   Button,
   Chip,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
-import { AccessTime as AccessTimeIcon } from '@mui/icons-material';
+import {
+  AccessTime as AccessTimeIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
+  CandlestickChart as CandlestickChartIcon,
+  ShowChart as LineChartIcon,
+} from '@mui/icons-material';
 import { ForexTimeRange, FOREX_COLORS } from '@/types/forex';
+
+type ChartType = 'candlestick' | 'line';
 
 interface ForexChartProps {
   symbol: string;
@@ -33,13 +45,36 @@ export default function ForexChart({
 }: ForexChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const seriesRef = useRef<
+    ISeriesApi<'Candlestick'> | ISeriesApi<'Area'> | null
+  >(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<ForexTimeRange>('5m');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [nextUpdate, setNextUpdate] = useState<number>(60);
+  const [barSpacing, setBarSpacing] = useState<number>(10);
+  const [chartType, setChartType] = useState<ChartType>('candlestick');
+
+  const ZOOM_STORAGE_KEY = 'forex_chart_zoom';
+  const CHART_TYPE_STORAGE_KEY = 'forex_chart_type';
+
+  // โหลดค่า zoom และ chart type จาก localStorage
+  useEffect(() => {
+    const savedZoom = localStorage.getItem(ZOOM_STORAGE_KEY);
+    if (savedZoom) {
+      const zoom = parseFloat(savedZoom);
+      if (!isNaN(zoom) && zoom >= 2 && zoom <= 50) {
+        setBarSpacing(zoom);
+      }
+    }
+
+    const savedChartType = localStorage.getItem(CHART_TYPE_STORAGE_KEY);
+    if (savedChartType === 'line' || savedChartType === 'candlestick') {
+      setChartType(savedChartType);
+    }
+  }, []);
 
   // ดึงข้อมูลกราฟ
   const fetchChartData = useCallback(
@@ -62,31 +97,74 @@ export default function ForexChart({
         const data = result.data || [];
 
         if (seriesRef.current && data.length > 0) {
-          const chartData: CandlestickData<Time>[] = data.map(
-            (d: {
-              time: string;
-              open: number;
-              high: number;
-              low: number;
-              close: number;
-            }) => ({
-              time: (new Date(d.time).getTime() / 1000) as Time,
-              open: d.open,
-              high: d.high,
-              low: d.low,
-              close: d.close,
-            })
-          );
+          if (chartType === 'candlestick') {
+            // Candlestick data
+            const chartData: CandlestickData<Time>[] = data.map(
+              (d: {
+                time: string;
+                open: number;
+                high: number;
+                low: number;
+                close: number;
+              }) => ({
+                time: (new Date(d.time).getTime() / 1000) as Time,
+                open: d.open,
+                high: d.high,
+                low: d.low,
+                close: d.close,
+              })
+            );
+            (seriesRef.current as ISeriesApi<'Candlestick'>).setData(chartData);
 
-          seriesRef.current.setData(chartData);
-          chartRef.current?.timeScale().fitContent();
+            // อัพเดทราคาปัจจุบัน
+            const lastCandle = chartData[chartData.length - 1];
+            if (lastCandle && chartData.length > 1) {
+              const prevCandle = chartData[chartData.length - 2];
+              const change = lastCandle.close - prevCandle.close;
+              onPriceUpdate?.(lastCandle.close, change);
+            }
+          } else {
+            // Area data (ใช้ close price)
+            const areaData: AreaData<Time>[] = data.map(
+              (d: { time: string; close: number }) => ({
+                time: (new Date(d.time).getTime() / 1000) as Time,
+                value: d.close,
+              })
+            );
 
-          // อัพเดทราคาปัจจุบัน
-          const lastCandle = chartData[chartData.length - 1];
-          if (lastCandle && chartData.length > 1) {
-            const prevCandle = chartData[chartData.length - 2];
-            const change = lastCandle.close - prevCandle.close;
-            onPriceUpdate?.(lastCandle.close, change);
+            // ตรวจสอบทิศทางราคา: จุดเริ่มต้น vs จุดสุดท้าย
+            const firstPrice = areaData[0]?.value || 0;
+            const lastPrice = areaData[areaData.length - 1]?.value || 0;
+            const isUptrend = lastPrice >= firstPrice;
+
+            // เปลี่ยนสีตามทิศทาง
+            const areaSeries = seriesRef.current as ISeriesApi<'Area'>;
+            areaSeries.applyOptions({
+              lineColor: isUptrend ? FOREX_COLORS.success : '#F23645',
+              topColor: isUptrend
+                ? 'rgba(0, 200, 83, 0.4)'
+                : 'rgba(242, 54, 69, 0.4)',
+              bottomColor: isUptrend
+                ? 'rgba(0, 200, 83, 0.05)'
+                : 'rgba(242, 54, 69, 0.05)',
+            });
+
+            areaSeries.setData(areaData);
+
+            // อัพเดทราคาปัจจุบัน
+            if (areaData.length > 1) {
+              const lastPoint = areaData[areaData.length - 1];
+              const prevPoint = areaData[areaData.length - 2];
+              const change = lastPoint.value - prevPoint.value;
+              onPriceUpdate?.(lastPoint.value, change);
+            }
+          }
+
+          // ใช้ค่า barSpacing ที่บันทึกไว้แทน fitContent
+          if (chartRef.current) {
+            const timeScale = chartRef.current.timeScale();
+            timeScale.applyOptions({ barSpacing: barSpacing });
+            timeScale.scrollToRealTime();
           }
 
           setLastUpdate(new Date());
@@ -97,7 +175,7 @@ export default function ForexChart({
         setLoading(false);
       }
     },
-    [symbol, timeRange, onPriceUpdate]
+    [symbol, timeRange, barSpacing, chartType, onPriceUpdate]
   );
 
   // Initialize chart
@@ -155,16 +233,29 @@ export default function ForexChart({
 
     chartRef.current = chart;
 
-    // สร้าง Candlestick Series
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
-    });
-
-    seriesRef.current = candlestickSeries;
+    // สร้าง Series ตาม chartType
+    if (chartType === 'candlestick') {
+      const candlestickSeries = chart.addSeries(CandlestickSeries, {
+        upColor: FOREX_COLORS.success, // เขียว #00c853
+        downColor: '#F23645', // แดงเข้ม
+        borderVisible: false,
+        wickUpColor: FOREX_COLORS.success, // ไส้เทียนเขียว
+        wickDownColor: '#F23645', // ไส้เทียนแดง
+      });
+      seriesRef.current = candlestickSeries;
+    } else {
+      const areaSeries = chart.addSeries(AreaSeries, {
+        lineColor: FOREX_COLORS.success, // เขียว (default)
+        topColor: 'rgba(0, 200, 83, 0.4)', // เขียวโปร่งใส
+        bottomColor: 'rgba(0, 200, 83, 0.05)', // เขียวจางมาก
+        lineWidth: 2,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: 4,
+        lastValueVisible: true,
+        priceLineVisible: true,
+      });
+      seriesRef.current = areaSeries;
+    }
 
     // Resize handler
     const handleResize = () => {
@@ -185,12 +276,12 @@ export default function ForexChart({
         seriesRef.current = null;
       }
     };
-  }, [height]);
+  }, [height, chartType]);
 
-  // Fetch data when symbol or timeRange changes
+  // Fetch data when symbol or timeRange or chartType changes
   useEffect(() => {
     fetchChartData(true);
-  }, [symbol, timeRange]);
+  }, [symbol, timeRange, chartType]);
 
   // Auto update ทุก 1 นาที (ตอน :00)
   useEffect(() => {
@@ -234,13 +325,17 @@ export default function ForexChart({
     };
   }, [symbol, timeRange, fetchChartData]);
 
-  const timeRanges: { value: ForexTimeRange; label: string }[] = [
-    { value: '1m', label: '1m' },
-    { value: '5m', label: '5m' },
-    { value: '15m', label: '15m' },
-    { value: '30m', label: '30m' },
-    { value: '1h', label: '1h' },
-    { value: '1d', label: '1d' },
+  const timeRanges: {
+    value: ForexTimeRange;
+    label: string;
+    tooltip: string;
+  }[] = [
+    { value: '1m', label: '1M', tooltip: '1 นาที/แท่ง (ย้อนหลัง 7 วัน)' },
+    { value: '5m', label: '5M', tooltip: '5 นาที/แท่ง (ย้อนหลัง 60 วัน)' },
+    { value: '15m', label: '15M', tooltip: '15 นาที/แท่ง (ย้อนหลัง 60 วัน)' },
+    { value: '30m', label: '30M', tooltip: '30 นาที/แท่ง (ย้อนหลัง 60 วัน)' },
+    { value: '1h', label: '1H', tooltip: '1 ชั่วโมง/แท่ง (ย้อนหลัง 2 ปี)' },
+    { value: '1d', label: '1D', tooltip: '1 วัน/แท่ง (ย้อนหลัง 1 ปี)' },
   ];
 
   const formatTime = (date: Date) => {
@@ -249,6 +344,39 @@ export default function ForexChart({
       minute: '2-digit',
       second: '2-digit',
     });
+  };
+
+  // Toggle chart type
+  const toggleChartType = () => {
+    const newType = chartType === 'candlestick' ? 'line' : 'candlestick';
+    setChartType(newType);
+    localStorage.setItem(CHART_TYPE_STORAGE_KEY, newType);
+  };
+
+  // Zoom functions - แท่งเทียนสุดท้ายชิดขวาเสมอ + เก็บค่าใน localStorage
+  // ค่าเริ่มต้น 10 = 100%, เพิ่ม/ลดครั้งละ 25% (2.5)
+  const handleZoomIn = () => {
+    if (chartRef.current) {
+      const timeScale = chartRef.current.timeScale();
+      const newBarSpacing = Math.min(barSpacing + 2.5, 50); // สูงสุด 500%
+      setBarSpacing(newBarSpacing);
+      localStorage.setItem(ZOOM_STORAGE_KEY, newBarSpacing.toString());
+      timeScale.applyOptions({ barSpacing: newBarSpacing });
+      // Scroll ไปขวาสุดเพื่อให้แท่งเทียนสุดท้ายชิดขวา
+      timeScale.scrollToRealTime();
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (chartRef.current) {
+      const timeScale = chartRef.current.timeScale();
+      const newBarSpacing = Math.max(barSpacing - 2.5, 2.5); // ต่ำสุด 25%
+      setBarSpacing(newBarSpacing);
+      localStorage.setItem(ZOOM_STORAGE_KEY, newBarSpacing.toString());
+      timeScale.applyOptions({ barSpacing: newBarSpacing });
+      // Scroll ไปขวาสุดเพื่อให้แท่งเทียนสุดท้ายชิดขวา
+      timeScale.scrollToRealTime();
+    }
   };
 
   return (
@@ -267,30 +395,100 @@ export default function ForexChart({
         {/* Time Range Buttons */}
         <ButtonGroup size="small" variant="outlined">
           {timeRanges.map((range) => (
-            <Button
-              key={range.value}
-              onClick={() => setTimeRange(range.value)}
-              sx={{
-                color: timeRange === range.value ? '#26a69a' : '#758696',
-                borderColor: 'rgba(42, 46, 57, 0.8)',
-                bgcolor:
-                  timeRange === range.value
-                    ? 'rgba(38, 166, 154, 0.1)'
-                    : 'transparent',
-                fontWeight: timeRange === range.value ? 700 : 400,
-                '&:hover': {
-                  bgcolor: 'rgba(38, 166, 154, 0.2)',
+            <Tooltip key={range.value} title={range.tooltip} arrow>
+              <Button
+                onClick={() => setTimeRange(range.value)}
+                sx={{
+                  color: timeRange === range.value ? '#26a69a' : '#758696',
                   borderColor: 'rgba(42, 46, 57, 0.8)',
-                },
-              }}
-            >
-              {range.label}
-            </Button>
+                  bgcolor:
+                    timeRange === range.value
+                      ? 'rgba(38, 166, 154, 0.1)'
+                      : 'transparent',
+                  fontWeight: timeRange === range.value ? 700 : 400,
+                  '&:hover': {
+                    bgcolor: 'rgba(38, 166, 154, 0.2)',
+                    borderColor: 'rgba(42, 46, 57, 0.8)',
+                  },
+                }}
+              >
+                {range.label}
+              </Button>
+            </Tooltip>
           ))}
         </ButtonGroup>
 
         {/* Update Info */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Zoom Buttons - ย่อซ้าย, ขยายขวา */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Tooltip title={`ย่อ (${Math.round((barSpacing / 10) * 100)}%)`}>
+              <IconButton
+                size="small"
+                onClick={handleZoomOut}
+                sx={{
+                  color: '#758696',
+                  bgcolor: 'rgba(42, 46, 57, 0.8)',
+                  '&:hover': {
+                    bgcolor: 'rgba(38, 166, 154, 0.2)',
+                    color: '#26a69a',
+                  },
+                  width: 28,
+                  height: 28,
+                }}
+              >
+                <ZoomOutIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={`ขยาย (${Math.round((barSpacing / 10) * 100)}%)`}>
+              <IconButton
+                size="small"
+                onClick={handleZoomIn}
+                sx={{
+                  color: '#758696',
+                  bgcolor: 'rgba(42, 46, 57, 0.8)',
+                  '&:hover': {
+                    bgcolor: 'rgba(38, 166, 154, 0.2)',
+                    color: '#26a69a',
+                  },
+                  width: 28,
+                  height: 28,
+                }}
+              >
+                <ZoomInIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Chart Type Toggle */}
+          <Tooltip
+            title={
+              chartType === 'candlestick'
+                ? 'เปลี่ยนเป็นเส้น'
+                : 'เปลี่ยนเป็นแท่งเทียน'
+            }
+          >
+            <IconButton
+              size="small"
+              onClick={toggleChartType}
+              sx={{
+                color: '#26a69a',
+                bgcolor: 'rgba(38, 166, 154, 0.15)',
+                '&:hover': {
+                  bgcolor: 'rgba(38, 166, 154, 0.3)',
+                },
+                width: 28,
+                height: 28,
+              }}
+            >
+              {chartType === 'candlestick' ? (
+                <LineChartIcon sx={{ fontSize: 18 }} />
+              ) : (
+                <CandlestickChartIcon sx={{ fontSize: 18 }} />
+              )}
+            </IconButton>
+          </Tooltip>
+
           {lastUpdate && (
             <Chip
               icon={<AccessTimeIcon sx={{ fontSize: 14 }} />}

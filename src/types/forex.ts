@@ -35,6 +35,14 @@ export interface ForexChartData {
 // คู่เงินที่แสดง
 export const FOREX_PAIRS: ForexPair[] = [
   {
+    symbol: 'XAU/USD',
+    base: 'XAU',
+    quote: 'USD',
+    name: 'ทองคำ / ดอลลาร์',
+    flag1: '🥇',
+    flag2: '🇺🇸',
+  },
+  {
     symbol: 'EUR/USD',
     base: 'EUR',
     quote: 'USD',

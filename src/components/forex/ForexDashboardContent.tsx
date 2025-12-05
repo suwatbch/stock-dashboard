@@ -43,7 +43,6 @@ import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,
   CurrencyExchange as CurrencyExchangeIcon,
-  Add as AddIcon,
   DragIndicator as DragIndicatorIcon,
   AccountCircle as AccountCircleIcon,
   AccountBalanceWallet as WalletIcon,
@@ -234,40 +233,6 @@ function SortableMiniPairCard({
           />
         )}
       </Box>
-    </Paper>
-  );
-}
-
-// Add Card สำหรับเพิ่มคู่เงิน (หลอก)
-function AddPairCard() {
-  return (
-    <Paper
-      sx={{
-        p: 1.5,
-        cursor: 'pointer',
-        bgcolor: FOREX_COLORS.card,
-        border: `2px dashed ${FOREX_COLORS.border}`,
-        borderRadius: 2,
-        transition: 'all 0.2s ease',
-        minWidth: 70,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        '&:hover': {
-          borderColor: '#26a69a',
-          bgcolor: 'rgba(38, 166, 154, 0.05)',
-        },
-      }}
-    >
-      <AddIcon
-        sx={{ fontSize: 22, color: FOREX_COLORS.textSecondary, mb: 0.5 }}
-      />
-      <Typography
-        sx={{ fontSize: '0.6rem', color: FOREX_COLORS.textSecondary }}
-      >
-        เพิ่มคู่เงิน
-      </Typography>
     </Paper>
   );
 }
@@ -739,7 +704,6 @@ export default function ForexDashboardContent() {
                       canRemove={orderedPairs.length > 1}
                     />
                   ))}
-                  <AddPairCard />
                   <ResetPairCard onReset={resetPairs} />
                 </Box>
               </SortableContext>
