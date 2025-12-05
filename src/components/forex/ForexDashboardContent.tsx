@@ -47,6 +47,8 @@ import {
   DragIndicator as DragIndicatorIcon,
   AccountCircle as AccountCircleIcon,
   AccountBalanceWallet as WalletIcon,
+  Close as CloseIcon,
+  RestartAlt as RestartAltIcon,
 } from '@mui/icons-material';
 import {
   FOREX_PAIRS,
@@ -66,6 +68,8 @@ interface SortableMiniPairCardProps {
   loading?: boolean;
   selected?: boolean;
   onClick?: () => void;
+  onRemove?: () => void;
+  canRemove?: boolean;
 }
 
 function SortableMiniPairCard({
@@ -74,6 +78,8 @@ function SortableMiniPairCard({
   loading,
   selected,
   onClick,
+  onRemove,
+  canRemove = true,
 }: SortableMiniPairCardProps) {
   const {
     attributes,
@@ -153,10 +159,31 @@ function SortableMiniPairCard({
             color: selected ? '#26a69a' : FOREX_COLORS.text,
             ml: 0.5,
             cursor: 'pointer',
+            flex: 1,
           }}
         >
           {pair.symbol}
         </Typography>
+        {/* ปุ่มลบ */}
+        {canRemove && onRemove && (
+          <Box
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            sx={{
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: FOREX_COLORS.textSecondary,
+              '&:hover': { color: '#ef5350' },
+              ml: 'auto',
+            }}
+          >
+            <CloseIcon sx={{ fontSize: 14 }} />
+          </Box>
+        )}
       </Box>
 
       {/* Price - Clickable */}
@@ -222,25 +249,63 @@ function AddPairCard() {
         border: `2px dashed ${FOREX_COLORS.border}`,
         borderRadius: 2,
         transition: 'all 0.2s ease',
-        minWidth: 100,
+        minWidth: 70,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 80,
         '&:hover': {
-          borderColor: FOREX_COLORS.textSecondary,
-          bgcolor: 'rgba(255, 255, 255, 0.02)',
+          borderColor: '#26a69a',
+          bgcolor: 'rgba(38, 166, 154, 0.05)',
         },
       }}
     >
       <AddIcon
-        sx={{ fontSize: 24, color: FOREX_COLORS.textSecondary, mb: 0.5 }}
+        sx={{ fontSize: 22, color: FOREX_COLORS.textSecondary, mb: 0.5 }}
       />
       <Typography
-        sx={{ fontSize: '0.65rem', color: FOREX_COLORS.textSecondary }}
+        sx={{ fontSize: '0.6rem', color: FOREX_COLORS.textSecondary }}
       >
         เพิ่มคู่เงิน
+      </Typography>
+    </Paper>
+  );
+}
+
+// Reset Card สำหรับรีเซ็ตคู่เงินกลับค่าเริ่มต้น
+interface ResetPairCardProps {
+  onReset: () => void;
+}
+
+function ResetPairCard({ onReset }: ResetPairCardProps) {
+  return (
+    <Paper
+      onClick={onReset}
+      sx={{
+        p: 1.5,
+        cursor: 'pointer',
+        bgcolor: FOREX_COLORS.card,
+        border: `2px dashed ${FOREX_COLORS.border}`,
+        borderRadius: 2,
+        transition: 'all 0.2s ease',
+        minWidth: 70,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        '&:hover': {
+          borderColor: '#ef5350',
+          bgcolor: 'rgba(239, 83, 80, 0.05)',
+        },
+      }}
+    >
+      <RestartAltIcon
+        sx={{ fontSize: 22, color: FOREX_COLORS.textSecondary, mb: 0.5 }}
+      />
+      <Typography
+        sx={{ fontSize: '0.6rem', color: FOREX_COLORS.textSecondary }}
+      >
+        รีเซ็ต
       </Typography>
     </Paper>
   );
@@ -255,33 +320,38 @@ function ProfileCard() {
       sx={{
         p: 1.5,
         bgcolor: FOREX_COLORS.card,
-        border: `1px solid ${FOREX_COLORS.border}`,
+        border: `2px solid ${FOREX_COLORS.border}`,
         borderRadius: 2,
         display: 'flex',
         alignItems: 'center',
-        gap: 2,
-        minWidth: 280,
-        background:
-          'linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(38, 38, 68, 0.9) 100%)',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+        gap: 1.5,
+        minWidth: 250,
+        maxHeight: 96.5,
       }}
     >
-      {/* Balance - ทางซ้าย */}
+      {/* Left Section - Balance Info */}
       <Box
         sx={{
-          flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          gap: 0.3,
+          flex: 1,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {/* Demo Balance Label */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            mb: 0.3,
+          }}
+        >
           <WalletIcon
             sx={{ fontSize: 14, color: FOREX_COLORS.textSecondary }}
           />
           <Typography
             sx={{
-              fontSize: '0.65rem',
+              fontSize: '0.7rem',
               color: FOREX_COLORS.textSecondary,
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
@@ -290,72 +360,73 @@ function ProfileCard() {
             Demo Balance
           </Typography>
         </Box>
-        <Typography
+
+        {/* Balance + Active */}
+        <Box
           sx={{
-            fontWeight: 700,
-            fontSize: '1.25rem',
-            color: '#26a69a',
-            fontFamily: 'monospace',
-            textShadow: '0 0 10px rgba(38, 166, 154, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: 0,
           }}
         >
-          ${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box
-            sx={{
-              width: 6,
-              height: 6,
-              borderRadius: '50%',
-              bgcolor: '#26a69a',
-              animation: 'pulse 2s infinite',
-              '@keyframes pulse': {
-                '0%': { opacity: 1 },
-                '50%': { opacity: 0.4 },
-                '100%': { opacity: 1 },
-              },
-            }}
-          />
           <Typography
-            sx={{ fontSize: '0.6rem', color: FOREX_COLORS.textSecondary }}
+            sx={{
+              fontWeight: 700,
+              fontSize: '1.15rem',
+              color: FOREX_COLORS.text,
+              fontFamily: 'monospace',
+              lineHeight: 1.2,
+            }}
           >
-            Active
+            ${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box
+              sx={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                bgcolor: '#26a69a',
+                animation: 'pulse 2s infinite',
+                '@keyframes pulse': {
+                  '0%': { opacity: 1 },
+                  '50%': { opacity: 0.4 },
+                  '100%': { opacity: 1 },
+                },
+              }}
+            />
+            <Typography
+              sx={{ fontSize: '0.65rem', color: FOREX_COLORS.textSecondary }}
+            >
+              Active
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
-      {/* Avatar - ทางขวา */}
+      {/* Right Section - Avatar (centered vertically) */}
       <Box
         sx={{
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          gap: 0.5,
+          justifyContent: 'center',
         }}
       >
         <Box
           sx={{
-            width: 44,
-            height: 44,
+            width: 70,
+            height: 70,
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #26a69a 0%, #2bbd9e 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 2px 10px rgba(38, 166, 154, 0.4)',
+            boxShadow: '0 2px 8px rgba(38, 166, 154, 0.3)',
           }}
         >
-          <AccountCircleIcon sx={{ fontSize: 32, color: '#fff' }} />
+          <AccountCircleIcon sx={{ fontSize: 36, color: '#fff' }} />
         </Box>
-        <Typography
-          sx={{
-            fontSize: '0.6rem',
-            color: FOREX_COLORS.textSecondary,
-            fontWeight: 500,
-          }}
-        >
-          Trader
-        </Typography>
       </Box>
     </Paper>
   );
@@ -428,6 +499,27 @@ export default function ForexDashboardContent() {
         return arrayMove(pairs, oldIndex, newIndex);
       });
     }
+  };
+
+  // ลบคู่เงิน
+  const removePair = (symbol: string) => {
+    if (orderedPairs.length <= 1) return; // ต้องมีอย่างน้อย 1 คู่
+
+    setOrderedPairs((pairs) => {
+      const newPairs = pairs.filter((p) => p.symbol !== symbol);
+      // ถ้าลบคู่เงินที่กำลังเลือกอยู่ ให้เลือกคู่แรก
+      if (selectedPair === symbol && newPairs.length > 0) {
+        setSelectedPair(newPairs[0].symbol);
+      }
+      return newPairs;
+    });
+  };
+
+  // รีเซ็ตกลับค่าเริ่มต้น
+  const resetPairs = () => {
+    setOrderedPairs([...FOREX_PAIRS]);
+    setSelectedPair(FOREX_PAIRS[0].symbol);
+    localStorage.removeItem(FOREX_PAIR_ORDER_KEY);
   };
 
   // ดึงข้อมูล quotes ทั้งหมด
@@ -643,9 +735,12 @@ export default function ForexDashboardContent() {
                       loading={loading}
                       selected={selectedPair === pair.symbol}
                       onClick={() => setSelectedPair(pair.symbol)}
+                      onRemove={() => removePair(pair.symbol)}
+                      canRemove={orderedPairs.length > 1}
                     />
                   ))}
                   <AddPairCard />
+                  <ResetPairCard onReset={resetPairs} />
                 </Box>
               </SortableContext>
             </DndContext>

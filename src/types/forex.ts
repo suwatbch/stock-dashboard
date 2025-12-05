@@ -43,14 +43,6 @@ export const FOREX_PAIRS: ForexPair[] = [
     flag2: '🇺🇸',
   },
   {
-    symbol: 'USD/JPY',
-    base: 'USD',
-    quote: 'JPY',
-    name: 'ดอลลาร์ / เยนญี่ปุ่น',
-    flag1: '🇺🇸',
-    flag2: '🇯🇵',
-  },
-  {
     symbol: 'GBP/USD',
     base: 'GBP',
     quote: 'USD',
@@ -59,12 +51,28 @@ export const FOREX_PAIRS: ForexPair[] = [
     flag2: '🇺🇸',
   },
   {
-    symbol: 'USD/THB',
+    symbol: 'USD/JPY',
     base: 'USD',
-    quote: 'THB',
-    name: 'ดอลลาร์ / บาทไทย',
+    quote: 'JPY',
+    name: 'ดอลลาร์ / เยนญี่ปุ่น',
     flag1: '🇺🇸',
-    flag2: '🇹🇭',
+    flag2: '🇯🇵',
+  },
+  {
+    symbol: 'BTC/USD',
+    base: 'BTC',
+    quote: 'USD',
+    name: 'บิทคอยน์ / ดอลลาร์',
+    flag1: '₿',
+    flag2: '🇺🇸',
+  },
+  {
+    symbol: 'ETH/USD',
+    base: 'ETH',
+    quote: 'USD',
+    name: 'อีเธอเรียม / ดอลลาร์',
+    flag1: 'Ξ',
+    flag2: '🇺🇸',
   },
 ];
 

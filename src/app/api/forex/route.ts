@@ -2,10 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // ============ FOREX DATA FETCHING ============
 
+// แปลง symbol เป็น Yahoo Finance format
+function toYahooSymbol(symbol: string): string {
+  // XAU/USD (Gold) -> GC=F (Gold Futures) หรือ XAUUSD=X
+  if (symbol === 'XAU/USD') {
+    return 'GC=F'; // Gold Futures
+  }
+  // XAG/USD (Silver) -> SI=F
+  if (symbol === 'XAG/USD') {
+    return 'SI=F';
+  }
+  // BTC/USD (Bitcoin) -> BTC-USD
+  if (symbol === 'BTC/USD') {
+    return 'BTC-USD';
+  }
+  // ETH/USD (Ethereum) -> ETH-USD
+  if (symbol === 'ETH/USD') {
+    return 'ETH-USD';
+  }
+  // คู่เงินปกติ: EUR/USD -> EURUSD=X
+  return symbol.replace('/', '') + '=X';
+}
+
 // ดึงข้อมูล Forex จาก Yahoo Finance
 async function getForexQuote(symbol: string) {
-  // แปลง symbol format: EUR/USD -> EURUSD=X
-  const yahooSymbol = symbol.replace('/', '') + '=X';
+  const yahooSymbol = toYahooSymbol(symbol);
 
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=5d`;
 
@@ -59,7 +80,7 @@ async function getForexQuote(symbol: string) {
 
 // ดึงข้อมูลกราฟ Forex
 async function getForexTimeSeries(symbol: string, interval: string) {
-  const yahooSymbol = symbol.replace('/', '') + '=X';
+  const yahooSymbol = toYahooSymbol(symbol);
 
   // กำหนด range ตาม interval
   let yahooRange = '1d';
