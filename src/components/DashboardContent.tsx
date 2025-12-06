@@ -63,6 +63,7 @@ import {
   ShowChart as ShowChartIcon,
   DragIndicator as DragIndicatorIcon,
   CurrencyExchange as CurrencyExchangeIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { SearchResult, WatchlistItem, StockQuote } from '@/types/stock';
@@ -244,17 +245,17 @@ function SortableRow({
           >
             {isPositive ? (
               <TrendingUpIcon
-                sx={{ color: '#00c853', fontSize: { xs: 14, sm: 18 } }}
+                sx={{ color: '#22c55e', fontSize: { xs: 14, sm: 18 } }}
               />
             ) : (
               <TrendingDownIcon
-                sx={{ color: '#ff1744', fontSize: { xs: 14, sm: 18 } }}
+                sx={{ color: '#ef4444', fontSize: { xs: 14, sm: 18 } }}
               />
             )}
             <Typography
               fontWeight={600}
               sx={{
-                color: isPositive ? '#00c853' : '#ff1744',
+                color: isPositive ? '#22c55e' : '#ef4444',
                 fontSize: { xs: '0.8rem', sm: '1rem' },
               }}
             >
@@ -615,9 +616,31 @@ export default function DashboardContent() {
                   <SearchIcon sx={{ color: 'text.secondary' }} />
                 </InputAdornment>
               ),
-              endAdornment: searchLoading && (
+              endAdornment: (
                 <InputAdornment position="end">
-                  <CircularProgress size={20} color="secondary" />
+                  {searchLoading && (
+                    <CircularProgress
+                      size={20}
+                      color="secondary"
+                      sx={{ mr: 1 }}
+                    />
+                  )}
+                  {searchQuery && (
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchResults([]);
+                        setShowSearchResults(false);
+                      }}
+                      sx={{
+                        color: 'text.secondary',
+                        '&:hover': { color: '#e94560' },
+                      }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </InputAdornment>
               ),
             }}
@@ -776,7 +799,7 @@ export default function DashboardContent() {
                             backgroundColor: 'rgba(15, 52, 96, 0.6)',
                             px: 1,
                             py: 0.5,
-                            borderRadius: 1,
+                            borderRadius: '12px',
                           }}
                         >
                           <Typography sx={{ fontSize: '1rem', lineHeight: 1 }}>
