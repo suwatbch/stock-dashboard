@@ -7,6 +7,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -139,8 +140,11 @@ function SortableRow({
     <TableRow
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
+      onClick={() => !isDragging && goToStockDetail(item.symbol, item.name)}
       sx={{
-        cursor: 'pointer',
+        cursor: isDragging ? 'grabbing' : 'pointer',
         '&:hover': {
           backgroundColor: 'rgba(15, 52, 96, 0.3)',
         },
@@ -148,31 +152,49 @@ function SortableRow({
         backgroundColor: isDragging ? 'rgba(233, 69, 96, 0.15)' : 'transparent',
         boxShadow: isDragging ? '0 4px 20px rgba(0,0,0,0.3)' : 'none',
         position: isDragging ? 'relative' : 'static',
+        touchAction: isDragging ? 'none' : 'pan-y', // ให้ scroll แนวตั้งได้ปกติ แต่ปิดตอน drag
+        userSelect: 'none',
       }}
     >
-      {/* Drag Handle */}
-      <TableCell sx={{ width: 40, p: 1 }}>
-        <IconButton
-          size="small"
-          {...attributes}
-          {...listeners}
+      {/* Drag Indicator */}
+      <TableCell sx={{ width: { xs: 32, sm: 40 }, p: { xs: 0.5, sm: 1 } }}>
+        <Box
           sx={{
-            cursor: 'grab',
-            color: 'text.secondary',
-            '&:hover': { color: '#e94560' },
-            '&:active': { cursor: 'grabbing' },
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: isDragging ? '#e94560' : 'text.secondary',
           }}
         >
-          <DragIndicatorIcon fontSize="small" />
-        </IconButton>
+          <DragIndicatorIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+        </Box>
       </TableCell>
 
-      <TableCell onClick={() => goToStockDetail(item.symbol, item.name)}>
-        <Typography variant="subtitle2" fontWeight={600}>
+      <TableCell
+        sx={{ maxWidth: { xs: 100, sm: 180, md: 250 }, p: { xs: 1, sm: 2 } }}
+      >
+        <Typography
+          variant="subtitle2"
+          fontWeight={600}
+          sx={{ fontSize: { xs: '0.85rem', sm: '0.875rem' } }}
+        >
           {item.symbol}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography sx={{ fontSize: '0.85rem', lineHeight: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            maxWidth: '100%',
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: { xs: '0.75rem', sm: '0.85rem' },
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >
             {getStockFlag(item.symbol).flag}
           </Typography>
           <Typography
@@ -182,6 +204,9 @@ function SortableRow({
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              flex: 1,
+              minWidth: 0,
             }}
           >
             {isThaiStock(item.symbol)
@@ -190,24 +215,22 @@ function SortableRow({
           </Typography>
         </Box>
       </TableCell>
-      <TableCell
-        align="right"
-        onClick={() => goToStockDetail(item.symbol, item.name)}
-      >
+      <TableCell align="right" sx={{ p: { xs: 1, sm: 2 } }}>
         {watchlistLoading && !quote ? (
           <Skeleton width={60} sx={{ ml: 'auto' }} />
         ) : quote ? (
-          <Typography fontWeight={600} fontFamily="monospace">
+          <Typography
+            fontWeight={600}
+            fontFamily="monospace"
+            sx={{ fontSize: { xs: '0.85rem', sm: '1rem' } }}
+          >
             ${formatNumber(quote.price)}
           </Typography>
         ) : (
           <Typography color="text.secondary">-</Typography>
         )}
       </TableCell>
-      <TableCell
-        align="right"
-        onClick={() => goToStockDetail(item.symbol, item.name)}
-      >
+      <TableCell align="right" sx={{ p: { xs: 1, sm: 2 } }}>
         {watchlistLoading && !quote ? (
           <Skeleton width={80} sx={{ ml: 'auto' }} />
         ) : quote ? (
@@ -220,13 +243,20 @@ function SortableRow({
             }}
           >
             {isPositive ? (
-              <TrendingUpIcon sx={{ color: '#00c853', fontSize: 18 }} />
+              <TrendingUpIcon
+                sx={{ color: '#00c853', fontSize: { xs: 14, sm: 18 } }}
+              />
             ) : (
-              <TrendingDownIcon sx={{ color: '#ff1744', fontSize: 18 }} />
+              <TrendingDownIcon
+                sx={{ color: '#ff1744', fontSize: { xs: 14, sm: 18 } }}
+              />
             )}
             <Typography
               fontWeight={600}
-              sx={{ color: isPositive ? '#00c853' : '#ff1744' }}
+              sx={{
+                color: isPositive ? '#00c853' : '#ff1744',
+                fontSize: { xs: '0.8rem', sm: '1rem' },
+              }}
             >
               {isPositive ? '+' : ''}
               {formatNumber(quote.changePercent)}%
@@ -238,7 +268,7 @@ function SortableRow({
       </TableCell>
       <TableCell
         align="right"
-        onClick={() => goToStockDetail(item.symbol, item.name)}
+        sx={{ display: { xs: 'none', md: 'table-cell' } }}
       >
         {watchlistLoading && !quote ? (
           <Skeleton width={50} sx={{ ml: 'auto' }} />
@@ -250,33 +280,26 @@ function SortableRow({
           <Typography color="text.secondary">-</Typography>
         )}
       </TableCell>
-      <TableCell align="center">
-        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-          <Tooltip title="ดูรายละเอียด">
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                goToStockDetail(item.symbol, item.name);
-              }}
-              sx={{ color: 'text.secondary', '&:hover': { color: '#e94560' } }}
-            >
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="ลบออกจากลิสต์">
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                removeFromWatchlist(item.symbol);
-              }}
-              sx={{ color: 'text.secondary', '&:hover': { color: '#ff1744' } }}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
+      <TableCell
+        align="center"
+        sx={{ p: { xs: 0.5, sm: 1, md: 2 }, width: { xs: 40, sm: 50 } }}
+      >
+        <Tooltip title="ลบออกจากลิสต์">
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeFromWatchlist(item.symbol);
+            }}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': { color: '#ff1744' },
+              p: { xs: 0.5, sm: 1 },
+            }}
+          >
+            <DeleteIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+          </IconButton>
+        </Tooltip>
       </TableCell>
     </TableRow>
   );
@@ -294,20 +317,33 @@ export default function DashboardContent() {
     reorderWatchlist,
   } = useWatchlist();
 
-  // DnD sensors - ปรับให้ smooth ขึ้น
+  // State declarations - ต้องอยู่ก่อน hooks อื่นๆ
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [apiSource, setApiSource] = useState<string>('Yahoo Finance');
+
+  // DnD sensors - กดค้างทั้งแถวเพื่อย้าย (ทั้ง PC และ Mobile)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // ลด distance เพื่อให้ลากได้เร็วขึ้น
+        delay: 250, // กดค้าง 250ms ก่อนลาก (PC)
+        tolerance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 300, // กดค้าง 300ms ก่อนลาก (Mobile) - นานกว่าเพื่อแยกจาก scroll
+        tolerance: 10, // ยอมให้ขยับนิดหน่อยได้โดยไม่ cancel
       },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  // State for active dragging item
-  const [activeId, setActiveId] = useState<string | null>(null);
 
   // Handle drag start
   const handleDragStart = (event: DragStartEvent) => {
@@ -326,13 +362,6 @@ export default function DashboardContent() {
       reorderWatchlist(newOrder);
     }
   };
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const [apiSource, setApiSource] = useState<string>('Yahoo Finance');
 
   // แปลงชื่อ API source
   const getProviderName = (source: string) => {
@@ -464,17 +493,18 @@ export default function DashboardContent() {
   const content = (
     <Box
       sx={{
-        minHeight: '100vh',
+        minHeight: { xs: '100dvh', sm: '100vh' }, // dvh สำหรับมือถือ (หักความสูง address bar)
         background:
           'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)',
-        p: 3,
+        px: { xs: '8px', sm: 2, md: 3 },
+        py: { xs: '24px', sm: 2, md: 3 },
       }}
     >
-      <Container maxWidth="lg">
+      <Container maxWidth="lg" sx={{ px: { xs: '8px', sm: 2, md: 3 } }}>
         {/* Header */}
-        <Box sx={{ mb: 4, textAlign: 'center' }}>
+        <Box sx={{ mb: { xs: 2, sm: 3, md: 4 }, textAlign: 'center' }}>
           {/* Navigation Toggle */}
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: { xs: 1.5, sm: 2, md: 3 } }}>
             <ToggleButtonGroup
               value="stock"
               exclusive
@@ -483,6 +513,7 @@ export default function DashboardContent() {
                   router.push('/forex');
                 }
               }}
+              size="small"
               sx={{
                 bgcolor: 'rgba(26, 26, 46, 0.95)',
                 border: '1px solid rgba(233, 69, 96, 0.3)',
@@ -490,8 +521,9 @@ export default function DashboardContent() {
                 '& .MuiToggleButton-root': {
                   color: '#94a3b8',
                   border: 'none',
-                  px: 3,
-                  py: 1,
+                  px: { xs: 2, sm: 3 },
+                  py: { xs: 0.5, sm: 1 },
+                  fontSize: { xs: '0.8rem', sm: '0.875rem' },
                   '&.Mui-selected': {
                     bgcolor: 'rgba(233, 69, 96, 0.2)',
                     color: '#e94560',
@@ -506,11 +538,15 @@ export default function DashboardContent() {
               }}
             >
               <ToggleButton value="stock">
-                <ShowChartIcon sx={{ mr: 1 }} />
+                <ShowChartIcon
+                  sx={{ mr: { xs: 0.5, sm: 1 }, fontSize: { xs: 18, sm: 24 } }}
+                />
                 Stock
               </ToggleButton>
               <ToggleButton value="forex">
-                <CurrencyExchangeIcon sx={{ mr: 1 }} />
+                <CurrencyExchangeIcon
+                  sx={{ mr: { xs: 0.5, sm: 1 }, fontSize: { xs: 18, sm: 24 } }}
+                />
                 Forex
               </ToggleButton>
             </ToggleButtonGroup>
@@ -522,15 +558,18 @@ export default function DashboardContent() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 1,
-              mb: 1,
+              mb: 0.5,
             }}
           >
-            <ShowChartIcon sx={{ fontSize: 48, color: '#e94560' }} />
+            <ShowChartIcon
+              sx={{ fontSize: { xs: 28, sm: 40, md: 48 }, color: '#e94560' }}
+            />
             <Typography
               variant="h3"
               component="h1"
               sx={{
                 fontWeight: 700,
+                fontSize: { xs: '1.5rem', sm: '2.5rem', md: '3rem' },
                 background: 'linear-gradient(45deg, #e94560 30%, #ff6b9d 90%)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
@@ -540,7 +579,11 @@ export default function DashboardContent() {
               Stock Dashboard
             </Typography>
           </Box>
-          <Typography variant="body1" color="text.secondary">
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}
+          >
             ค้นหาและติดตามหุ้นที่คุณสนใจ
           </Typography>
         </Box>
@@ -549,10 +592,10 @@ export default function DashboardContent() {
         <Paper
           elevation={8}
           sx={{
-            mb: 3,
-            p: 2,
+            mb: { xs: 1.5, sm: 2, md: 3 },
+            p: { xs: 1, sm: 1.5, md: 2 },
             backgroundColor: 'rgba(26, 26, 46, 0.95)',
-            borderRadius: 3,
+            borderRadius: { xs: 2, sm: 3 },
             border: '1px solid rgba(233, 69, 96, 0.2)',
             position: 'relative',
           }}
@@ -802,16 +845,31 @@ export default function DashboardContent() {
           {/* Watchlist Header */}
           <Box
             sx={{
-              p: 3,
+              p: { xs: 1.5, sm: 2, md: 3 },
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               borderBottom: '1px solid rgba(45, 45, 68, 0.5)',
+              flexWrap: 'wrap',
+              gap: 1,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <BookmarkBorderIcon sx={{ color: '#e94560', fontSize: 28 }} />
-              <Typography variant="h6" fontWeight={600}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: { xs: 1, sm: 2 },
+                flexWrap: 'wrap',
+              }}
+            >
+              <BookmarkBorderIcon
+                sx={{ color: '#e94560', fontSize: { xs: 24, sm: 28 } }}
+              />
+              <Typography
+                variant="h6"
+                fontWeight={600}
+                sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+              >
                 รายการหุ้นที่สนใจ
               </Typography>
               <Chip
@@ -823,10 +881,16 @@ export default function DashboardContent() {
                 }}
               />
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {/* สรุปประเทศ/ประเภท */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: { xs: 0.5, sm: 1 },
+              }}
+            >
+              {/* สรุปประเทศ/ประเภท - แสดงทุกขนาดหน้าจอ */}
               {watchlist.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
+                <Box sx={{ display: 'flex', gap: 0.5, mr: { xs: 0, sm: 1 } }}>
                   {(() => {
                     const countryCounts = watchlist.reduce((acc, item) => {
                       const { flag, country } = getStockFlag(item.symbol);
@@ -843,10 +907,10 @@ export default function DashboardContent() {
                           label={`${flag} ${data.count}`}
                           size="small"
                           sx={{
-                            height: 24,
-                            fontSize: '0.75rem',
+                            height: { xs: 20, sm: 24 },
+                            fontSize: { xs: '0.65rem', sm: '0.75rem' },
                             backgroundColor: 'rgba(15, 52, 96, 0.6)',
-                            '& .MuiChip-label': { px: 1 },
+                            '& .MuiChip-label': { px: { xs: 0.5, sm: 1 } },
                           }}
                         />
                       </Tooltip>
@@ -859,6 +923,7 @@ export default function DashboardContent() {
                   <IconButton
                     onClick={refreshWatchlistQuotes}
                     disabled={watchlistLoading || watchlist.length === 0}
+                    size="small"
                     sx={{
                       color: 'text.secondary',
                       '&:hover': { color: '#e94560' },
@@ -866,6 +931,7 @@ export default function DashboardContent() {
                   >
                     <RefreshIcon
                       sx={{
+                        fontSize: { xs: 20, sm: 24 },
                         animation: watchlistLoading
                           ? 'spin 1s linear infinite'
                           : 'none',
@@ -891,46 +957,71 @@ export default function DashboardContent() {
               modifiers={[restrictToVerticalAxis, restrictToParentElement]}
             >
               <TableContainer>
-                <Table>
+                <Table size="small">
                   <TableHead>
                     <TableRow>
                       <TableCell
                         sx={{
                           color: 'text.secondary',
                           fontWeight: 600,
-                          width: 48,
+                          width: { xs: 32, sm: 48 },
+                          p: { xs: 0.5, sm: 1 },
                         }}
                       >
                         {/* Drag handle column */}
                       </TableCell>
                       <TableCell
-                        sx={{ color: 'text.secondary', fontWeight: 600 }}
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          p: { xs: 1, sm: 2 },
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                        }}
                       >
                         หุ้น
                       </TableCell>
                       <TableCell
                         align="right"
-                        sx={{ color: 'text.secondary', fontWeight: 600 }}
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          p: { xs: 1, sm: 2 },
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                        }}
                       >
                         ราคา
                       </TableCell>
                       <TableCell
                         align="right"
-                        sx={{ color: 'text.secondary', fontWeight: 600 }}
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          p: { xs: 1, sm: 2 },
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                        }}
                       >
                         เปลี่ยนแปลง
                       </TableCell>
                       <TableCell
                         align="right"
-                        sx={{ color: 'text.secondary', fontWeight: 600 }}
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          display: { xs: 'none', md: 'table-cell' },
+                        }}
                       >
                         ปริมาณ
                       </TableCell>
                       <TableCell
                         align="center"
-                        sx={{ color: 'text.secondary', fontWeight: 600 }}
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          width: { xs: 40, sm: 50 },
+                          p: { xs: 0.5, sm: 1 },
+                        }}
                       >
-                        จัดการ
+                        {/* ลบ */}
                       </TableCell>
                     </TableRow>
                   </TableHead>
@@ -977,8 +1068,18 @@ export default function DashboardContent() {
         </Paper>
 
         {/* Footer */}
-        <Box sx={{ mt: 4, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
+        <Box
+          sx={{
+            mt: { xs: 2, sm: 3, md: 4 },
+            textAlign: 'center',
+            pb: { xs: 1, sm: 2 },
+          }}
+        >
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
+          >
             ข้อมูลจาก {apiSource} • Stock Dashboard © 2025
           </Typography>
         </Box>
