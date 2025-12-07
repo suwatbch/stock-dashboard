@@ -325,25 +325,10 @@ export default function StockDetailContent({
       }
 
       if (!timeSeries || Object.keys(timeSeries).length === 0) {
-        // ถ้าไม่มีข้อมูล intraday ให้ลองใช้ daily แทน
-        if (type === 'intraday') {
-          const dailyResponse = await fetch(
-            `/api/stock?symbol=${symbol}&type=daily`
-          );
-          const dailyData = await dailyResponse.json();
-          timeSeries = dailyData['Time Series (Daily)'];
-          if (!timeSeries || Object.keys(timeSeries).length === 0) {
-            // ไม่มีข้อมูลเลย - แสดงกราฟเปล่า
-            console.warn('ไม่มีข้อมูลกราฟสำหรับ', symbol);
-            setChartLoading(false);
-            return;
-          }
-        } else {
-          // ไม่มีข้อมูลเลย - แสดงกราฟเปล่า
-          console.warn('ไม่มีข้อมูลกราฟสำหรับ', symbol);
-          setChartLoading(false);
-          return;
-        }
+        // ไม่มีข้อมูล - แสดงกราฟเปล่า ไม่ throw error
+        console.warn('ไม่มีข้อมูลกราฟสำหรับ', symbol);
+        setChartLoading(false);
+        return;
       }
 
       // Convert to chart data

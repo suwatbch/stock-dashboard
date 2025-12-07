@@ -406,7 +406,8 @@ export default function DashboardContent() {
       hasInitialLoad.current = true;
       refreshWatchlistQuotes();
     }
-  }, [isInitialized, watchlist.length, refreshWatchlistQuotes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized]); // เอา watchlist.length และ refreshWatchlistQuotes ออก
 
   // ค้นหาหุ้น
   const searchStock = useCallback(async (query: string) => {
@@ -494,11 +495,13 @@ export default function DashboardContent() {
   const content = (
     <Box
       sx={{
-        minHeight: { xs: '100dvh', sm: '100vh' }, // dvh สำหรับมือถือ (หักความสูง address bar)
         background:
           'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%)',
         px: { xs: '8px', sm: 2, md: 3 },
         py: { xs: '24px', sm: 2, md: 3 },
+        pb: { xs: '60px', sm: 3 },
+        minHeight: 0,
+        height: 'auto',
       }}
     >
       <Container maxWidth="lg" sx={{ px: { xs: '8px', sm: 2, md: 3 } }}>

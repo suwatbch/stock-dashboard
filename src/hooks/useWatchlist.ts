@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { WatchlistItem, StockQuote } from '@/types/stock';
 
 const WATCHLIST_KEY = 'stock_watchlist';
@@ -13,6 +13,12 @@ export function useWatchlist() {
   >(new Map());
   const [loading, setLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const watchlistRef = useRef<WatchlistItem[]>([]);
+
+  // Sync ref กับ state
+  useEffect(() => {
+    watchlistRef.current = watchlist;
+  }, [watchlist]);
 
   // โหลด watchlist และ quotes cache จาก localStorage เมื่อ mount
   useEffect(() => {
@@ -109,12 +115,13 @@ export function useWatchlist() {
 
   // ดึงข้อมูลราคาหุ้นใน watchlist ทั้งหมด
   const refreshWatchlistQuotes = useCallback(async () => {
-    if (watchlist.length === 0) return;
+    const currentWatchlist = watchlistRef.current;
+    if (currentWatchlist.length === 0) return;
 
     setLoading(true);
 
     // ดึงข้อมูลทีละตัวเพื่อไม่ให้โดน rate limit
-    for (const item of watchlist) {
+    for (const item of currentWatchlist) {
       try {
         const response = await fetch(
           `/api/stock?symbol=${item.symbol}&type=quote`
@@ -154,7 +161,7 @@ export function useWatchlist() {
     }
 
     setLoading(false);
-  }, [watchlist]); // เอา watchlistQuotes ออกจาก dependency
+  }, []); // ใช้ ref แทน dependency เพื่อป้องกัน re-create function
 
   // เรียงลำดับ watchlist ใหม่
   const reorderWatchlist = useCallback((newOrder: WatchlistItem[]) => {
