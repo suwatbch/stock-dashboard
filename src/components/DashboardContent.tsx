@@ -6,13 +6,14 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
   DragStartEvent,
   DragOverlay,
+  MeasuringStrategy,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -126,11 +127,15 @@ function SortableRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.symbol });
+  } = useSortable({
+    id: item.symbol,
+    // ปิด transition ที่อาจทำให้เกิด scroll jump
+    transition: null,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: transition || 'transform 250ms cubic-bezier(0.25, 1, 0.5, 1)',
+    transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.8 : 1,
     zIndex: isDragging ? 100 : 'auto',
   };
@@ -149,15 +154,14 @@ function SortableRow({
         '&:hover': {
           backgroundColor: 'rgba(15, 52, 96, 0.3)',
         },
-        transition: 'background-color 0.2s, box-shadow 0.2s',
+        transition: 'background-color 0.2s',
         backgroundColor: isDragging ? 'rgba(233, 69, 96, 0.15)' : 'transparent',
         boxShadow: isDragging ? '0 4px 20px rgba(0,0,0,0.3)' : 'none',
-        position: isDragging ? 'relative' : 'static',
-        touchAction: isDragging ? 'none' : 'pan-y', // ให้ scroll แนวตั้งได้ปกติ แต่ปิดตอน drag
+        position: 'static',
         userSelect: 'none',
       }}
     >
-      {/* Drag Indicator */}
+      {/* Drag Indicator - เป็นสัญลักษณ์บอกว่าลากได้ (กดค้างที่แถวทั้งแถว) */}
       <TableCell sx={{ width: { xs: 32, sm: 40 }, p: { xs: 0.5, sm: 1 } }}>
         <Box
           sx={{
@@ -167,7 +171,12 @@ function SortableRow({
             color: isDragging ? '#e94560' : 'text.secondary',
           }}
         >
-          <DragIndicatorIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+          <DragIndicatorIcon
+            sx={{
+              fontSize: { xs: 20, sm: 22 },
+              opacity: 0.7,
+            }}
+          />
         </Box>
       </TableCell>
 
@@ -327,18 +336,19 @@ export default function DashboardContent() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [apiSource, setApiSource] = useState<string>('Yahoo Finance');
 
-  // DnD sensors - กดค้างทั้งแถวเพื่อย้าย (ทั้ง PC และ Mobile)
+  // DnD sensors - กดค้างที่แถวเพื่อลาก
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    // MouseSensor สำหรับ PC
+    useSensor(MouseSensor, {
       activationConstraint: {
-        delay: 250, // กดค้าง 250ms ก่อนลาก (PC)
-        tolerance: 5,
+        distance: 5, // ลากไป 5px ถึงจะเริ่ม drag
       },
     }),
+    // TouchSensor สำหรับ Mobile - กดค้างที่แถวเพื่อลาก
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 300, // กดค้าง 300ms ก่อนลาก (Mobile) - นานกว่าเพื่อแยกจาก scroll
-        tolerance: 10, // ยอมให้ขยับนิดหน่อยได้โดยไม่ cancel
+        delay: 200, // กดค้าง 200ms (สั้นพอที่จะรู้สึกว่าตอบสนองดี แต่ยาวพอแยกออกจาก scroll)
+        tolerance: 8, // ยอมให้ขยับนิ้วได้ 8px ระหว่างกดค้าง
       },
     }),
     useSensor(KeyboardSensor, {
@@ -362,6 +372,10 @@ export default function DashboardContent() {
       const newOrder = arrayMove(watchlist, oldIndex, newIndex);
       reorderWatchlist(newOrder);
     }
+
+    // ป้องกันการ scroll jump บนมือถือ
+    event.delta.x = 0;
+    event.delta.y = 0;
   };
 
   // แปลงชื่อ API source
@@ -500,8 +514,9 @@ export default function DashboardContent() {
         px: { xs: '8px', sm: 2, md: 3 },
         py: { xs: '24px', sm: 2, md: 3 },
         pb: { xs: '60px', sm: 3 },
-        minHeight: 0,
-        height: 'auto',
+        minHeight: '100dvh', // ใช้ dvh แก้ปัญหา address bar ในมือถือ
+        // ลบ overscrollBehavior และ touchAction ที่อาจขัดแย้งออก
+        // ปล่อยให้ Browser จัดการ scroll ตามธรรมชาติ
       }}
     >
       <Container maxWidth="lg" sx={{ px: { xs: '8px', sm: 2, md: 3 } }}>
@@ -980,9 +995,27 @@ export default function DashboardContent() {
               collisionDetection={closestCenter}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
-              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+              modifiers={[restrictToVerticalAxis]}
+              // เปิด AutoScroll แต่ปรับจูนให้ไม่ไวเกินไป
+              autoScroll={{
+                threshold: {
+                  x: 0,
+                  y: 0.1, // ต้องลากไปใกล้ขอบมากๆ (10%) ถึงจะ scroll
+                },
+                acceleration: 0, // ไม่ต้องเร่งความเร็ว
+              }}
+              measuring={{
+                droppable: {
+                  strategy: MeasuringStrategy.Always,
+                },
+              }}
             >
-              <TableContainer>
+              <TableContainer
+                sx={{
+                  // เอา properties พิเศษออกเพื่อให้ scroll ทำงานแบบ native
+                  position: 'relative',
+                }}
+              >
                 <Table size="small">
                   <TableHead>
                     <TableRow>
