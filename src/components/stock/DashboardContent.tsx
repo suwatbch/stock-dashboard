@@ -69,7 +69,7 @@ import {
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { SearchResult, WatchlistItem, StockQuote } from '@/types/stock';
 import { getThaiStockName, isThaiStock } from '@/data/thaiStocks';
-import ThemeRegistry from './ThemeRegistry';
+import ThemeRegistry from '../ThemeRegistry';
 
 // ฟังก์ชันหาธงชาติจาก symbol
 const getStockFlag = (symbol: string): { flag: string; country: string } => {
@@ -515,8 +515,9 @@ export default function DashboardContent() {
         py: { xs: '24px', sm: 2, md: 3 },
         pb: { xs: '60px', sm: 3 },
         minHeight: '100dvh', // ใช้ dvh แก้ปัญหา address bar ในมือถือ
-        // ลบ overscrollBehavior และ touchAction ที่อาจขัดแย้งออก
-        // ปล่อยให้ Browser จัดการ scroll ตามธรรมชาติ
+        // ป้องกัน scroll bounce บนมือถือ
+        overscrollBehavior: 'contain',
+        WebkitOverflowScrolling: 'touch',
       }}
     >
       <Container maxWidth="lg" sx={{ px: { xs: '8px', sm: 2, md: 3 } }}>

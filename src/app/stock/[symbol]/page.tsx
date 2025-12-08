@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 const StockDetailContent = dynamic(
-  () => import('@/components/StockDetailContent'),
+  () => import('@/components/stock/StockDetailContent'),
   { ssr: false }
 );
 

@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 
 const DashboardContent = dynamic(
-  () => import('@/components/DashboardContent'),
+  () => import('@/components/stock/DashboardContent'),
   { ssr: false }
 );
 

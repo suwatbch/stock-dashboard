@@ -35,7 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { StockQuote, TimeRange } from '@/types/stock';
-import ThemeRegistry from './ThemeRegistry';
+import ThemeRegistry from '../ThemeRegistry';
 
 interface StockDetailContentProps {
   symbol: string;
@@ -966,6 +966,32 @@ export default function StockDetailContent({
               ${formatNumber(stockData.low)}
             </Typography>
           </Box>
+        </Box>
+      )}
+
+      {/* Last Update Time - Mobile */}
+      {lastUpdate && (
+        <Box
+          sx={{
+            px: 2,
+            pb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1,
+          }}
+        >
+          <AccessTimeIcon
+            sx={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}
+          />
+          <Typography
+            sx={{
+              color: 'rgba(255,255,255,0.4)',
+              fontSize: '0.7rem',
+            }}
+          >
+            อัพเดตล่าสุด: {formatDateTime(lastUpdate)}
+          </Typography>
         </Box>
       )}
 
