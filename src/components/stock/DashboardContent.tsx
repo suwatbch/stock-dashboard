@@ -70,6 +70,7 @@ import { useWatchlist } from '@/hooks/useWatchlist';
 import { SearchResult, WatchlistItem, StockQuote } from '@/types/stock';
 import { getThaiStockName, isThaiStock } from '@/data/thaiStocks';
 import ThemeRegistry from '../ThemeRegistry';
+import StockLogo from '../common/StockLogo';
 
 // ฟังก์ชันหาธงชาติจาก symbol
 const getStockFlag = (symbol: string): { flag: string; country: string } => {
@@ -161,21 +162,21 @@ function SortableRow({
         userSelect: 'none',
       }}
     >
-      {/* Drag Indicator - เป็นสัญลักษณ์บอกว่าลากได้ (กดค้างที่แถวทั้งแถว) */}
-      <TableCell sx={{ width: { xs: 32, sm: 40 }, p: { xs: 0.5, sm: 1 } }}>
+      {/* Stock Logo - ยังกดค้างลากได้เหมือนเดิม (ผูกกับทั้งแถว) */}
+      <TableCell sx={{ width: { xs: 40, sm: 50 }, pl: { xs: 1.5, sm: 2 }, pr: 0, py: { xs: 0.5, sm: 1 } }}>
         <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: isDragging ? '#e94560' : 'text.secondary',
+            opacity: isDragging ? 0.7 : 1,
+            transition: 'opacity 0.2s',
           }}
         >
-          <DragIndicatorIcon
-            sx={{
-              fontSize: { xs: 20, sm: 22 },
-              opacity: 0.7,
-            }}
+          <StockLogo
+            symbol={item.symbol}
+            name={item.name}
+            size={{ xs: 28, sm: 36 }}
           />
         </Box>
       </TableCell>

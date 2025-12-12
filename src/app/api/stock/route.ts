@@ -96,13 +96,13 @@ async function yahooTimeSeries(symbol: string, type: string) {
     range = '1d';
     interval = '5m';
   } else if (type === 'daily') {
-    range = '3mo';
+    range = '2y'; // เพิ่มจาก 3mo เป็น 2y เพื่อให้ได้ data points มากขึ้น
     interval = '1d';
   } else if (type === 'weekly') {
-    range = '1y';
+    range = '5y'; // เพิ่มจาก 1y เป็น 5y
     interval = '1wk';
   } else if (type === 'monthly') {
-    range = '5y';
+    range = 'max'; // เพิ่มเป็น max
     interval = '1mo';
   }
 
@@ -261,13 +261,13 @@ async function twelveDataTimeSeries(symbol: string, type: string) {
     outputsize = 78;
   } else if (type === 'daily') {
     interval = '1day';
-    outputsize = 100;
+    outputsize = 500; // เพิ่มจาก 100 เป็น 500 เพื่อให้ได้ data points มากขึ้น
   } else if (type === 'weekly') {
     interval = '1week';
-    outputsize = 52;
+    outputsize = 260; // เพิ่มจาก 52 เป็น 260 (5 ปี)
   } else if (type === 'monthly') {
     interval = '1month';
-    outputsize = 60;
+    outputsize = 120; // เพิ่มจาก 60 เป็น 120 (10 ปี)
   }
 
   const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${TWELVE_DATA_API_KEY}`;

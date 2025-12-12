@@ -36,6 +36,7 @@ import {
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { StockQuote, TimeRange } from '@/types/stock';
 import ThemeRegistry from '../ThemeRegistry';
+import StockLogo from '../common/StockLogo';
 
 interface StockDetailContentProps {
   symbol: string;
@@ -308,12 +309,9 @@ export default function StockDetailContent({
   const fetchChartData = useCallback(async () => {
     try {
       setChartLoading(true);
-
+      // ใช้ daily data สำหรับทุกช่วงเวลา (ยกเว้น 1D ใช้ intraday) เพื่อให้กราฟถี่ขึ้น
       let type = 'daily';
       if (timeRange === '1D') type = 'intraday';
-      else if (timeRange === '1W' || timeRange === '1M') type = 'daily';
-      else if (timeRange === '3M' || timeRange === '1Y') type = 'weekly';
-      else if (timeRange === 'ALL') type = 'monthly';
 
       const response = await fetch(`/api/stock?symbol=${symbol}&type=${type}`);
       const data = await response.json();
@@ -326,12 +324,8 @@ export default function StockDetailContent({
       let timeSeries: Record<string, Record<string, string>>;
       if (type === 'intraday') {
         timeSeries = data['Time Series (5min)'];
-      } else if (type === 'daily') {
-        timeSeries = data['Time Series (Daily)'];
-      } else if (type === 'weekly') {
-        timeSeries = data['Weekly Time Series'];
       } else {
-        timeSeries = data['Monthly Time Series'];
+        timeSeries = data['Time Series (Daily)'];
       }
 
       if (!timeSeries || Object.keys(timeSeries).length === 0) {
@@ -370,18 +364,18 @@ export default function StockDetailContent({
           return (a.time as string).localeCompare(b.time as string);
         });
 
-      // Filter data based on timeRange
+      // Filter data based on timeRange - ใช้ daily data จึงมีจุดข้อมูลมากขึ้น
       let filteredData = chartData;
       if (timeRange === '1D') {
-        filteredData = chartData.slice(-78);
+        filteredData = chartData.slice(-78); // 5min intervals for 1 day
       } else if (timeRange === '1W') {
-        filteredData = chartData.slice(-7);
+        filteredData = chartData.slice(-7); // 7 days
       } else if (timeRange === '1M') {
-        filteredData = chartData.slice(-30);
+        filteredData = chartData.slice(-30); // ~30 days
       } else if (timeRange === '3M') {
-        filteredData = chartData.slice(-13);
+        filteredData = chartData.slice(-90); // ~90 days (ก่อนหน้า: 13 weeks)
       } else if (timeRange === '1Y') {
-        filteredData = chartData.slice(-52);
+        filteredData = chartData.slice(-365); // ~365 days (ก่อนหน้า: 52 weeks)
       }
 
       // Update chart
@@ -484,6 +478,11 @@ export default function StockDetailContent({
           borderColor: isMobileView ? 'transparent' : CHART_COLORS.border,
           timeVisible: true,
           secondsVisible: false,
+          tickMarkMaxCharacterLength: 10,
+          fixLeftEdge: true,
+          fixRightEdge: true,
+          ticksVisible: true,
+          uniformDistribution: true,
         },
         rightPriceScale: {
           visible: false, // Hide price scale on both mobile and desktop
@@ -1021,26 +1020,28 @@ export default function StockDetailContent({
             alignItems: 'flex-start',
           }}
         >
-          <Box>
-            <Typography
-              sx={{
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '0.875rem',
-                mb: 0.5,
-              }}
-            >
-              {stockName}
-            </Typography>
-            <Typography
-              sx={{
-                color: '#6366f1',
-                fontSize: '1.5rem',
-                fontWeight: 700,
-                mb: 1,
-              }}
-            >
-              {symbol}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <StockLogo symbol={symbol} name={stockName} size={{ xs: 40, sm: 48 }} />
+            <Box>
+              <Typography
+                sx={{
+                  color: '#6366f1',
+                  fontSize: '1.5rem',
+                  fontWeight: 700,
+                }}
+              >
+                {symbol}
+              </Typography>
+              <Typography
+                sx={{
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: '0.875rem',
+                  mt: 0.5,
+                }}
+              >
+                {stockName}
+              </Typography>
+            </Box>
           </Box>
 
           {/* Badges - Market & Exchange */}
@@ -1528,6 +1529,7 @@ export default function StockDetailContent({
             </IconButton>
           </Tooltip>
 
+          <StockLogo symbol={symbol} name={stockName} size={{ xs: 48, sm: 56 }} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box
               sx={{
