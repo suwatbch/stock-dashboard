@@ -125,12 +125,12 @@ async function yahooTimeSeries(symbol: string, type: string) {
   const quotes = result.indicators?.quote?.[0] || {};
 
   const timeSeries: Record<string, Record<string, string>> = {};
+  const isIntradayLike = type.startsWith('intraday');
   timestamps.forEach((ts: number, i: number) => {
     const date = new Date(ts * 1000);
-    const dateStr =
-      type === 'intraday'
-        ? date.toISOString().replace('T', ' ').substring(0, 19)
-        : date.toISOString().split('T')[0];
+    const dateStr = isIntradayLike
+      ? date.toISOString().replace('T', ' ').substring(0, 19)
+      : date.toISOString().split('T')[0];
 
     if (quotes.close?.[i] !== null && quotes.close?.[i] !== undefined) {
       timeSeries[dateStr] = {
@@ -325,6 +325,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const symbol = searchParams.get('symbol');
   const type = searchParams.get('type') || 'quote';
+  const provider = searchParams.get('provider');
 
   if (!symbol) {
     return NextResponse.json({ error: 'กรุณาระบุ symbol' }, { status: 400 });
@@ -332,6 +333,14 @@ export async function GET(request: NextRequest) {
 
   try {
     let data;
+
+    // Optional: force a single provider (useful for testing)
+    if (provider === 'yahoo') {
+      if (type === 'search') data = await yahooSearch(symbol);
+      else if (type === 'quote') data = await yahooQuote(symbol);
+      else data = await yahooTimeSeries(symbol, type);
+      return NextResponse.json(data);
+    }
 
     if (type === 'search') {
       // ค้นหา: Yahoo -> Finnhub -> TwelveData

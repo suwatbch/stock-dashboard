@@ -40,7 +40,7 @@ export interface ChartDataPoint {
 }
 
 // ช่วงเวลากราฟ
-export type TimeRange = '1D' | '5D' | '1M' | '6M' | '1Y' | '5Y' | 'ALL';
+export type TimeRange = '1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y' | 'ALL';
 
 // Theme colors
 export const COLORS = {

@@ -274,7 +274,9 @@ export default function StockDetailContent({
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/stock?symbol=${symbol}&type=quote`);
+      const response = await fetch(
+        `/api/stock?symbol=${symbol}&type=quote&provider=yahoo`
+      );
       const data = await response.json();
 
       if (data.error) {
@@ -323,19 +325,21 @@ export default function StockDetailContent({
 
       // เลือก type ตามช่วงเวลา
       // - 1D: intraday (5min intervals)
-      // - 5D: intraday5d (60min intervals) - รายชั่วโมงเพื่อให้เห็นความผันผวน
+      // - 1W: intraday5d (60min intervals) - รายชั่วโมงเพื่อให้เห็นความผันผวน
       // - 1M, 6M, 1Y, 5Y: daily
       // - ALL: weekly (เพื่อให้ได้ข้อมูลย้อนหลังมากกว่า 5 ปี)
       let type = 'daily';
       if (timeRange === '1D') {
         type = 'intraday';
-      } else if (timeRange === '5D') {
+      } else if (timeRange === '1W') {
         type = 'intraday5d'; // ข้อมูลรายชั่วโมง 5 วัน
       } else if (timeRange === 'ALL') {
         type = 'weekly'; // ใช้ weekly สำหรับ ALL เพื่อให้ได้ข้อมูล max
       }
 
-      const response = await fetch(`/api/stock?symbol=${symbol}&type=${type}`);
+      const response = await fetch(
+        `/api/stock?symbol=${symbol}&type=${type}&provider=yahoo`
+      );
       const data = await response.json();
 
       if (data.error) {
@@ -396,11 +400,13 @@ export default function StockDetailContent({
       let filteredData = chartData;
       if (timeRange === '1D') {
         filteredData = chartData.slice(-78); // 5min intervals for 1 day
-      } else if (timeRange === '5D') {
+      } else if (timeRange === '1W') {
         // ใช้ข้อมูลรายชั่วโมง 5 วัน (ประมาณ 5 x 7 = 35 ชั่วโมงต่อวัน x 5 = ~40 จุดข้อมูล)
         filteredData = chartData; // ใช้ทั้งหมดที่ API ส่งมา
       } else if (timeRange === '1M') {
         filteredData = chartData.slice(-21); // ~21 วันทำการ (1 เดือน)
+      } else if (timeRange === '3M') {
+        filteredData = chartData.slice(-63); // ~63 วันทำการ (3 เดือน)
       } else if (timeRange === '6M') {
         filteredData = chartData.slice(-126); // ~126 วันทำการ (6 เดือน)
       } else if (timeRange === '1Y') {
@@ -619,7 +625,11 @@ export default function StockDetailContent({
               return `${adjustedHours.toString().padStart(2, '0')}:${minutes
                 .toString()
                 .padStart(2, '0')}`;
-            } else if (currentRange === '5D' || currentRange === '1M') {
+            } else if (
+              currentRange === '1W' ||
+              currentRange === '1M' ||
+              currentRange === '3M'
+            ) {
               // แสดงวันที่: Dec 9
               const day = date.getUTCDate();
               const month = monthNames[date.getUTCMonth()];
@@ -1162,7 +1172,11 @@ export default function StockDetailContent({
               return `${adjustedHours.toString().padStart(2, '0')}:${minutes
                 .toString()
                 .padStart(2, '0')}`;
-            } else if (currentRange === '5D' || currentRange === '1M') {
+            } else if (
+              currentRange === '1W' ||
+              currentRange === '1M' ||
+              currentRange === '3M'
+            ) {
               const day = date.getUTCDate();
               const month = monthNames[date.getUTCMonth()];
               return `${month} ${day}`;
@@ -1243,7 +1257,16 @@ export default function StockDetailContent({
   };
 
   const isPositive = stockData ? stockData.change >= 0 : true;
-  const timeRanges: TimeRange[] = ['1D', '5D', '1M', '6M', '1Y', '5Y', 'ALL'];
+  const timeRanges: TimeRange[] = [
+    '1D',
+    '1W',
+    '1M',
+    '3M',
+    '6M',
+    '1Y',
+    '5Y',
+    'ALL',
+  ];
 
   // Mobile Layout (Robinhood style)
   const mobileContent = (
@@ -1471,10 +1494,12 @@ export default function StockDetailContent({
               >
                 {timeRange === '1D'
                   ? 'วันนี้'
-                  : timeRange === '5D'
-                  ? '5 วัน'
+                  : timeRange === '1W'
+                  ? '1 สัปดาห์'
                   : timeRange === '1M'
                   ? 'เดือนนี้'
+                  : timeRange === '3M'
+                  ? '3 เดือน'
                   : timeRange === '6M'
                   ? '6 เดือน'
                   : timeRange === '1Y'
@@ -2079,10 +2104,12 @@ export default function StockDetailContent({
                     >
                       {timeRange === '1D'
                         ? 'วันนี้'
-                        : timeRange === '5D'
-                        ? '5 วัน'
+                        : timeRange === '1W'
+                        ? '1 สัปดาห์'
                         : timeRange === '1M'
                         ? 'เดือนนี้'
+                        : timeRange === '3M'
+                        ? '3 เดือน'
                         : timeRange === '6M'
                         ? '6 เดือน'
                         : timeRange === '1Y'
