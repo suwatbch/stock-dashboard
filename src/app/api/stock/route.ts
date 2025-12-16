@@ -95,10 +95,50 @@ async function yahooTimeSeries(symbol: string, type: string) {
   if (type === 'intraday') {
     range = '1d';
     interval = '5m';
+  } else if (type === 'intraday1d1m') {
+    // 1 วัน แบบ 1 นาที (Yahoo รองรับ 1m ได้ถึง ~7 วัน)
+    range = '1d';
+    interval = '1m';
+  } else if (type === 'intraday5d1m') {
+    // 5 วัน แบบ 1 นาที (Yahoo รองรับ 1m ได้ถึง ~7 วัน)
+    range = '5d';
+    interval = '1m';
+  } else if (type === 'intraday5d15m') {
+    // 5 วัน แบบ 15 นาที (Yahoo รองรับ 15m ได้ถึง ~60 วัน)
+    range = '5d';
+    interval = '15m';
+  } else if (type === 'intraday5d5m') {
+    // 5 วัน แบบ 5 นาที (เหมาะกับ 1W ที่ต้องการละเอียด)
+    range = '5d';
+    interval = '5m';
   } else if (type === 'intraday5d') {
     // ข้อมูลรายชั่วโมงสำหรับ 5D - ให้เห็นความผันผวนมากขึ้น
     range = '5d';
     interval = '60m'; // 1 ชั่วโมง
+  } else if (type === 'intraday5d30m') {
+    // 5 วัน แบบ 30 นาที (Yahoo รองรับ 30m ได้ถึง ~60 วัน)
+    range = '5d';
+    interval = '30m';
+  } else if (type === 'intraday6mo') {
+    // 6 เดือน แบบรายชั่วโมง (จะไป aggregate เป็น 2 ชั่วโมงที่ฝั่ง UI)
+    range = '6mo';
+    interval = '60m';
+  } else if (type === 'intraday30m') {
+    // ข้อมูล 30 นาที สำหรับ 1 เดือน (Yahoo รองรับ 30m ได้ถึง ~60 วัน)
+    range = '1mo';
+    interval = '30m';
+  } else if (type === 'intraday1m') {
+    // ทดสอบ: ข้อมูลรายชั่วโมงสำหรับ 1 เดือน
+    range = '1mo';
+    interval = '60m';
+  } else if (type === 'intraday3m') {
+    // ทดสอบ: ข้อมูลรายชั่วโมงสำหรับ 3 เดือน
+    range = '3mo';
+    interval = '60m';
+  } else if (type === 'daily10y') {
+    // ข้อมูลรายวันย้อนหลัง 10 ปี (ใช้สำหรับ ALL แบบ sample วัน 1/15)
+    range = '10y';
+    interval = '1d';
   } else if (type === 'daily') {
     range = '5y'; // ใช้ 5y สำหรับข้อมูลรายวัน (max จะคืนข้อมูลเป็น monthly)
     interval = '1d';
@@ -144,8 +184,20 @@ async function yahooTimeSeries(symbol: string, type: string) {
   });
 
   let key = 'Time Series (Daily)';
-  if (type === 'intraday') key = 'Time Series (5min)';
-  else if (type === 'intraday5d') key = 'Time Series (60min)';
+  if (type === 'intraday' || type === 'intraday5d5m')
+    key = 'Time Series (5min)';
+  else if (type === 'intraday1d1m' || type === 'intraday5d1m')
+    key = 'Time Series (1min)';
+  else if (type === 'intraday5d15m') key = 'Time Series (15min)';
+  else if (type === 'intraday5d30m' || type === 'intraday30m')
+    key = 'Time Series (30min)';
+  else if (
+    type === 'intraday5d' ||
+    type === 'intraday1m' ||
+    type === 'intraday3m' ||
+    type === 'intraday6mo'
+  )
+    key = 'Time Series (60min)';
   else if (type === 'weekly') key = 'Weekly Time Series';
   else if (type === 'monthly') key = 'Monthly Time Series';
 

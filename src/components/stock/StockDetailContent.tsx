@@ -323,18 +323,91 @@ export default function StockDetailContent({
       // อัพเดท ref สำหรับใช้ใน chart localization
       timeRangeRef.current = timeRange;
 
+      // รวมข้อมูลเป็น bucket ตามจำนวนวินาที (เลือก close จุดสุดท้ายของแต่ละ bucket)
+      const bucketLast = (
+        points: AreaData<Time>[],
+        bucketSeconds: number
+      ): AreaData<Time>[] => {
+        if (bucketSeconds <= 0) return points;
+        const out: AreaData<Time>[] = [];
+        let lastBucketKey: number | null = null;
+        for (const p of points) {
+          if (typeof p.time !== 'number') continue;
+          const bucketKey = Math.floor(p.time / bucketSeconds);
+          if (lastBucketKey === null || bucketKey !== lastBucketKey) {
+            out.push(p);
+            lastBucketKey = bucketKey;
+          } else {
+            out[out.length - 1] = p; // replace with latest point in the same bucket
+          }
+        }
+        return out;
+      };
+
+      // เลือกจุดวันที่ 1 และ 15 ของทุกเดือน (ถ้าวันนั้นไม่มีข้อมูล -> เลือกวันทำการถัดไปภายในเดือนเดียวกัน)
+      const sampleDay1And15EachMonth = (
+        points: AreaData<Time>[]
+      ): AreaData<Time>[] => {
+        const sorted = [...points].filter((p) => typeof p.time === 'number');
+        sorted.sort((a, b) => (a.time as number) - (b.time as number));
+
+        const monthOrder: string[] = [];
+        const picks = new Map<
+          string,
+          { d1?: AreaData<Time>; d15?: AreaData<Time> }
+        >();
+
+        let currentMonthKey: string | null = null;
+        for (const p of sorted) {
+          const t = p.time as number;
+          const d = new Date(t * 1000);
+          const y = d.getUTCFullYear();
+          const m = d.getUTCMonth() + 1; // 1-12
+          const day = d.getUTCDate();
+          const monthKey = `${y}-${String(m).padStart(2, '0')}`;
+
+          if (monthKey !== currentMonthKey) {
+            currentMonthKey = monthKey;
+            monthOrder.push(monthKey);
+            if (!picks.has(monthKey)) picks.set(monthKey, {});
+          }
+
+          const slot = picks.get(monthKey)!;
+          if (!slot.d1 && day >= 1) slot.d1 = p;
+          if (!slot.d15 && day >= 15) slot.d15 = p;
+        }
+
+        const out: AreaData<Time>[] = [];
+        for (const monthKey of monthOrder) {
+          const slot = picks.get(monthKey);
+          if (!slot) continue;
+          if (slot.d1) out.push(slot.d1);
+          if (slot.d15 && (!slot.d1 || slot.d15.time !== slot.d1.time))
+            out.push(slot.d15);
+        }
+        return out;
+      };
+
       // เลือก type ตามช่วงเวลา
-      // - 1D: intraday (5min intervals)
-      // - 1W: intraday5d (60min intervals) - รายชั่วโมงเพื่อให้เห็นความผันผวน
-      // - 1M, 6M, 1Y, 5Y: daily
-      // - ALL: weekly (เพื่อให้ได้ข้อมูลย้อนหลังมากกว่า 5 ปี)
+      // - 1D: intraday1d1m (1min intervals)
+      // - 1W: intraday5d15m (15min intervals)
+      // - 1M: intraday30m (30min intervals)
+      // - 6M: intraday6mo (60min intervals -> aggregate เป็น 2 ชั่วโมงใน UI)
+      // - 1Y, 5Y: daily
+      // - ALL: daily10y (รายวันทุกวัน ย้อนหลัง 10 ปี)
       let type = 'daily';
       if (timeRange === '1D') {
-        type = 'intraday';
+        type = 'intraday1d1m';
       } else if (timeRange === '1W') {
-        type = 'intraday5d'; // ข้อมูลรายชั่วโมง 5 วัน
+        type = 'intraday5d15m'; // ข้อมูล 15 นาที 5 วัน
+      } else if (timeRange === '1M') {
+        type = 'intraday30m'; // ข้อมูล 30 นาที 1 เดือน
+      } else if (timeRange === '3M') {
+        type = 'intraday3m'; // ข้อมูลรายชั่วโมง 3 เดือน
+      } else if (timeRange === '6M') {
+        type = 'intraday6mo'; // ดึงรายชั่วโมง 6 เดือน แล้วรวมเป็น 2 ชั่วโมง
       } else if (timeRange === 'ALL') {
-        type = 'weekly'; // ใช้ weekly สำหรับ ALL เพื่อให้ได้ข้อมูล max
+        type = 'daily10y'; // รายวัน 10 ปี
       }
 
       const response = await fetch(
@@ -348,9 +421,20 @@ export default function StockDetailContent({
 
       // Parse data based on type
       let timeSeries: Record<string, Record<string, string>>;
-      if (type === 'intraday') {
+      if (type === 'intraday1d1m' || type === 'intraday5d1m') {
+        timeSeries = data['Time Series (1min)'];
+      } else if (type === 'intraday5d15m') {
+        timeSeries = data['Time Series (15min)'];
+      } else if (type === 'intraday' || type === 'intraday5d5m') {
         timeSeries = data['Time Series (5min)'];
-      } else if (type === 'intraday5d') {
+      } else if (type === 'intraday5d30m' || type === 'intraday30m') {
+        timeSeries = data['Time Series (30min)'];
+      } else if (
+        type === 'intraday5d' ||
+        type === 'intraday1m' ||
+        type === 'intraday3m' ||
+        type === 'intraday6mo'
+      ) {
         timeSeries = data['Time Series (60min)'];
       } else if (type === 'weekly') {
         timeSeries = data['Weekly Time Series'];
@@ -361,6 +445,8 @@ export default function StockDetailContent({
       if (!timeSeries || Object.keys(timeSeries).length === 0) {
         // ไม่มีข้อมูล - แสดงกราฟเปล่า ไม่ throw error
         console.warn('ไม่มีข้อมูลกราฟสำหรับ', symbol);
+        // เคลียร์กราฟเพื่อไม่ให้ค้างเป็นข้อมูลช่วงก่อนหน้า
+        seriesRef.current?.setData([]);
         setChartLoading(false);
         return;
       }
@@ -370,7 +456,19 @@ export default function StockDetailContent({
       const chartData: AreaData<Time>[] = Object.entries(timeSeries)
         .map(([date, values]) => {
           let timestamp: number;
-          if (type === 'intraday' || type === 'intraday5d') {
+          if (
+            type === 'intraday' ||
+            type === 'intraday5d' ||
+            type === 'intraday1d1m' ||
+            type === 'intraday5d1m' ||
+            type === 'intraday5d15m' ||
+            type === 'intraday5d5m' ||
+            type === 'intraday5d30m' ||
+            type === 'intraday30m' ||
+            type === 'intraday1m' ||
+            type === 'intraday3m' ||
+            type === 'intraday6mo'
+          ) {
             // Parse datetime and add Thai timezone offset (7 hours) for chart display
             const parsedDate = new Date(date.replace(' ', 'T') + 'Z');
             const thaiOffset = 7 * 60 * 60; // 7 hours in seconds
@@ -399,23 +497,24 @@ export default function StockDetailContent({
       // Intraday: ~78 intervals per day (5min intervals for 6.5 hours)
       let filteredData = chartData;
       if (timeRange === '1D') {
-        filteredData = chartData.slice(-78); // 5min intervals for 1 day
+        filteredData = chartData.slice(-390); // ~390 นาทีสำหรับตลาด US (6.5 ชม.)
       } else if (timeRange === '1W') {
         // ใช้ข้อมูลรายชั่วโมง 5 วัน (ประมาณ 5 x 7 = 35 ชั่วโมงต่อวัน x 5 = ~40 จุดข้อมูล)
         filteredData = chartData; // ใช้ทั้งหมดที่ API ส่งมา
       } else if (timeRange === '1M') {
-        filteredData = chartData.slice(-21); // ~21 วันทำการ (1 เดือน)
+        filteredData = chartData; // ใช้ทั้งหมดที่ API ส่งมา (1mo, 60m)
       } else if (timeRange === '3M') {
-        filteredData = chartData.slice(-63); // ~63 วันทำการ (3 เดือน)
+        filteredData = chartData; // ใช้ทั้งหมดที่ API ส่งมา (3mo, 60m)
       } else if (timeRange === '6M') {
-        filteredData = chartData.slice(-126); // ~126 วันทำการ (6 เดือน)
+        // ดึงมาจาก API เป็นรายชั่วโมงอยู่แล้ว -> รวมเป็น 2 ชั่วโมงเพื่อให้กราฟอ่านง่าย
+        filteredData = bucketLast(chartData, 2 * 60 * 60);
       } else if (timeRange === '1Y') {
         filteredData = chartData.slice(-252); // ~252 วันทำการ (1 ปี)
       } else if (timeRange === '5Y') {
         filteredData = chartData.slice(-252 * 5); // ~1260 วันทำการ (5 ปี)
       } else if (timeRange === 'ALL') {
-        // ALL ใช้ weekly data - จำกัดไม่เกิน 10 ปี (52 สัปดาห์ x 10 = 520)
-        filteredData = chartData.slice(-520);
+        // ALL: รายวันทุกวัน (10 ปี)
+        filteredData = chartData;
       }
 
       // Update chart
